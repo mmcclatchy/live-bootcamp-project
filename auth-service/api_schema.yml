@@ -1,19 +1,29 @@
-# Visualize schema at: https://editor.swagger.io/
 openapi: 3.0.0
 info:
   title: Authentication Service API
   description: This is an API for an authentication service using JWT and optional email 2FA.
   version: 1.0.0
+  contact:
+    name: Mark McClatchy
 
 servers:
-  - url: 'http://example.com/api'
+  - url: 'http://localhost:3000'
     description: Main server
+
+tags:
+  - name: Authentication
+    description: Endpoints related to user authentication
+  - name: UI
+    description: Endpoints serving user interface components
 
 paths:
   /:
     get:
       summary: Login/Sign-up UI
-      description: This route serves the login/signup UI
+      description: This route serves the login/signup UI for user authentication.
+      operationId: getLoginSignupUI
+      tags:
+        - UI
       responses:
         '200':
           description: Login/Signup UI
@@ -22,9 +32,14 @@ paths:
               schema:
                 type: string
                 example: '<html><body><h1>Login/Signup</h1></body></html>'
+
   /signup:
     post:
       summary: Register a new user
+      description: Creates a new user account with the provided email, password, and 2FA preference.
+      operationId: signupUser
+      tags:
+        - Authentication
       requestBody:
         required: true
         content:
@@ -85,6 +100,10 @@ paths:
   /login:
     post:
       summary: Authenticate user and return JWT
+      description: Authenticates a user with their email and password, returning a JWT token or prompting for 2FA if enabled.
+      operationId: loginUser
+      tags:
+        - Authentication
       requestBody:
         required: true
         content:
@@ -150,6 +169,10 @@ paths:
   /verify-2fa:
     post:
       summary: Verify 2FA token
+      description: Verifies the 2FA token provided by the user during the login process.
+      operationId: verify2FAToken
+      tags:
+        - Authentication
       requestBody:
         required: true
         content:
@@ -205,6 +228,10 @@ paths:
   /logout:
     post:
       summary: Logout user
+      description: Logs out the user by invalidating their JWT token.
+      operationId: logoutUser
+      tags:
+        - Authentication
       parameters:
         - in: cookie
           name: jwt
@@ -251,7 +278,10 @@ paths:
   /verify-token:
     post:
       summary: Verify JWT
-      description: Verifies if a JWT is valid
+      description: Verifies if a provided JWT token is valid.
+      operationId: verifyJWTToken
+      tags:
+        - Authentication
       requestBody:
         required: true
         content:
