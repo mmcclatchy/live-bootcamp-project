@@ -95,6 +95,14 @@ jobs:
         script: |
           cd ~
           export AUTH_SERVICE_IP=${{ vars.DROPLET_IP }}
+          export NGINX_CONF=/etc/nginx/nginx.conf
+
+          # Ensure the Nginx config file exists
+          if [ ! -f "$NGINX_CONF" ]; then
+            echo "Nginx configuration file not found at $NGINX_CONF"
+            exit 1
+          fi
+
           docker compose down
           docker compose pull
-          docker compose up -d
+          NGINX_CONF=$NGINX_CONF docker compose up -d
