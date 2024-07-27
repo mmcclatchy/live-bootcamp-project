@@ -37,7 +37,9 @@ resource "digitalocean_droplet" "monorepo" {
   size   = "s-1vcpu-512mb-10gb"
 
   user_data = templatefile("${path.module}/user_data.tftpl", {
-    root_password = var.droplet_root_password
+    root_password    = var.droplet_root_password
+    email_address    = var.personal_email_address
+    full_domain_name = "${var.subdomain_name}.${var.domain_name}"
   })
 
 }
