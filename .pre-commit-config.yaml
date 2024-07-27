@@ -12,3 +12,8 @@ repos:
       - id: fmt
       - id: cargo-check
       - id: clippy
+
+  - repo: https://github.com/antonbabenko/pre-commit-terraform
+    rev: v1.92.0
+    hooks:
+      - id: terraform_fmt
