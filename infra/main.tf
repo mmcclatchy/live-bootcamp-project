@@ -1,9 +1,3 @@
-variable "do_token" {}
-variable "droplet_root_password1" {}
-variable "namecheap_username" {}
-variable "namecheap_api_key" {}
-variable "zoho_record_address" {}
-
 terraform {
   required_providers {
     digitalocean = {
@@ -13,6 +7,10 @@ terraform {
     namecheap = {
       source  = "namecheap/namecheap"
       version = ">= 2.0.0"
+    }
+    github = {
+      source  = "integrations/github"
+      version = "~> 6.0"
     }
   }
 }
@@ -39,7 +37,7 @@ resource "digitalocean_droplet" "monorepo" {
   size   = "s-1vcpu-512mb-10gb"
 
   user_data = templatefile("${path.module}/user_data.tftpl", {
-    root_password = var.droplet_root_password1
+    root_password = var.droplet_root_password
   })
 
 }
