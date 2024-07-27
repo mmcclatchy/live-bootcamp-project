@@ -1,17 +1,4 @@
 services:
-  nginx:
-    image: nginx:latest
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ${NGINX_CONF:-./local/nginx.local.conf}:/etc/nginx/nginx.conf:ro
-    depends_on:
-      - app-service
-      - auth-service
-    networks:
-      - app-network
-
   app-service:
     image: mmcclatchy/app-service
     build:
@@ -20,6 +7,8 @@ services:
     restart: "always"
     environment:
       AUTH_SERVICE_IP: auth-service
+    ports:
+      - "8000:8000"
     expose:
       - "8000"
     depends_on:
@@ -34,6 +23,8 @@ services:
       context: ./auth-service
       dockerfile: Dockerfile
     restart: "always"
+    ports:
+      - "3000:3000"
     expose:
       - "3000"
     networks:

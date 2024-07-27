@@ -5,3 +5,16 @@ services:
   auth-service:
     build:
       context: ./auth-service # specify directory where local Dockerfile is located
+
+  nginx:
+    image: nginx:latest
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./local/nginx.local.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - app-service
+      - auth-service
+    networks:
+      - app-network

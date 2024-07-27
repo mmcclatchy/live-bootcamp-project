@@ -51,15 +51,23 @@ server {
         proxy_cache_bypass $http_upgrade;
     }
 
+    location /app/assets/ {
+        proxy_pass http://127.0.0.1:8000/assets/;
+    }
+
+    location /auth/assets/ {
+        proxy_pass http://127.0.0.1:3000/;
+    }
+
     location ~ /.well-known/acme-challenge {
         allow all;
         root /var/www/html;
     }
 
     # This line redirects domain requests to HTTPS, but allows IP-based requests over HTTP
-    # if ($host = rust-bc.markmcclatchy.com) {
-    #     return 301 https://$host$request_uri;
-    # }
+    if ($host = rust-bc.markmcclatchy.com) {
+        return 301 https://$host$request_uri;
+    }
 }
 
 server {
@@ -88,6 +96,14 @@ server {
         proxy_set_header Connection 'upgrade';
         proxy_set_header Host $host;
         proxy_cache_bypass $http_upgrade;
+    }
+
+    location /app/assets/ {
+        proxy_pass http://127.0.0.1:8000/assets/;
+    }
+
+    location /auth/assets/ {
+        proxy_pass http://127.0.0.1:3000/;
     }
 
     location ~ /.well-known/acme-challenge {
