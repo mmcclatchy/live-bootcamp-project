@@ -1,11 +1,18 @@
 variable "do_token" {}
-variable "droplet_root_password" {}
+variable "droplet_root_password1" {}
+variable "namecheap_username" {}
+variable "namecheap_api_key" {}
+variable "zoho_record_address" {}
 
 terraform {
   required_providers {
     digitalocean = {
       source  = "digitalocean/digitalocean"
       version = "~> 2.0"
+    }
+    namecheap = {
+      source  = "namecheap/namecheap"
+      version = ">= 2.0.0"
     }
   }
 }
@@ -14,14 +21,11 @@ provider "digitalocean" {
   token = var.do_token
 }
 
-data "digitalocean_vpc" "default" {
-  name = "default-nyc1"
+provider "namecheap" {
+  user_name = var.namecheap_username
+  api_user  = var.namecheap_username
+  api_key   = var.namecheap_api_key
 }
-
-# resource "digitalocean_ssh_key" "personal_ssh" {
-#   name       = "Terraform Example"
-#   public_key = file("/Users/markmcclatchy/.ssh/id_rsa.pub")
-# }
 
 resource "digitalocean_project" "bootcamp" {
   name    = "live-bootcamp"
@@ -33,10 +37,9 @@ resource "digitalocean_droplet" "monorepo" {
   name   = "live-bootcamp-monorepo"
   region = "nyc1"
   size   = "s-1vcpu-512mb-10gb"
-  # ssh_keys = [digitalocean_ssh_key.personal_ssh.id]
 
   user_data = templatefile("${path.module}/user_data.tftpl", {
-    root_password = var.droplet_root_password
+    root_password = var.droplet_root_password1
   })
 
 }
@@ -46,13 +49,48 @@ resource "digitalocean_project_resources" "project_resources" {
   resources = [digitalocean_droplet.monorepo.urn]
 }
 
-resource "digitalocean_domain" "personal" {
-  name = "markmcclatchy.com"
-}
+resource "namecheap_domain_records" "personal" {
+  domain = "markmcclatchy.com"
 
-resource "digitalocean_record" "rust_bc" {
-  domain = digitalocean_domain.personal.name
-  type   = "A"
-  name   = "rust-bc"
-  value  = digitalocean_droplet.monorepo.ipv4_address
+  record {
+    hostname = "rust-bc"
+    type     = "A"
+    address  = digitalocean_droplet.monorepo.ipv4_address
+  }
+
+  record {
+    hostname = "www"
+    type     = "CNAME"
+    address  = "mmcclatchy.github.io."
+  }
+
+  record {
+    hostname = "@"
+    type     = "TXT"
+    address  = var.zoho_record_address
+  }
+
+  record {
+    hostname = "@"
+    type     = "A"
+    address  = "185.199.108.153"
+  }
+
+  record {
+    hostname = "@"
+    type     = "A"
+    address  = "185.199.109.153"
+  }
+
+  record {
+    hostname = "@"
+    type     = "A"
+    address  = "185.199.110.153"
+  }
+
+  record {
+    hostname = "@"
+    type     = "A"
+    address  = "185.199.111.153"
+  }
 }
