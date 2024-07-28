@@ -18,6 +18,30 @@
 - This can be put in the root level of the project
 - If you prefer separate `.gitignore` files, then just keep `*.tfvars` down in the `infra/.gitignore` file
 
+## index.html and app.js changes
+
+- In order for the paths to work correctly, changes to the `src` paths needed to be made
+  - Instead of using local paths, absolute paths need to be used
+  - Do this for all `<img src="...">`
+    - From:
+
+        ```html
+        <img src="/assets/lgr_logo.png" alt="" width="25" height="25" class="d-inline-block align-text-top">
+        ```
+
+    - To:
+
+        ```html
+        <img src="/app/assets/lgr_logo.png" alt="" width="25" height="25" class="d-inline-block align-text-top">
+        ```
+
+  - `app-service/assets/app.js`
+    - Use the absolute path for `protectImg.src`:
+
+      ```js
+      protectImg.src = "/app/assets/default.jpg";
+      ```
+
 ## Using Terraform locally
 
 - [Install Terraform](https://developer.hashicorp.com/terraform/tutorials/aws-get-started/install-cli)
@@ -50,7 +74,7 @@
     }
 
     data "github_repository" "live_rust_bootcamp" {
-    name = "live-bootcamp-project"
+        name = "live-bootcamp-project"
     }
     ```
 
