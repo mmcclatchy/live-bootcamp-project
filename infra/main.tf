@@ -41,7 +41,6 @@ resource "digitalocean_droplet" "monorepo" {
     email_address    = var.personal_email_address
     full_domain_name = "${var.subdomain_name}.${var.domain_name}"
   })
-
 }
 
 resource "digitalocean_project_resources" "project_resources" {
