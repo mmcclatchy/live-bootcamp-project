@@ -6,7 +6,7 @@ services:
       dockerfile: Dockerfile
     restart: "always"
     environment:
-      AUTH_SERVICE_IP: auth-service
+      AUTH_SERVICE_URL: rust-bc.markmcclatchy.com/auth
     ports:
       - "8000:8000"
     expose:

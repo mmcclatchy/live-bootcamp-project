@@ -18,7 +18,7 @@
 - This can be put in the root level of the project
 - If you prefer separate `.gitignore` files, then just keep `*.tfvars` down in the `infra/.gitignore` file
 
-## index.html and app.js changes
+## Code changes
 
 - In order for the paths to work correctly, changes to the `src` paths needed to be made
   - Instead of using local paths, absolute paths need to be used
@@ -41,6 +41,31 @@
       ```js
       protectImg.src = "/app/assets/default.jpg";
       ```
+
+  - `app-service/main.rs`
+    - Update the `address` envar key:
+
+      ```rust
+      let mut address = env::var("AUTH_SERVICE_URL").unwrap_or("localhost/auth".to_owned());
+      ```
+
+  - `compose.yml`
+
+    ```yml
+    services:
+      app-service:
+        environment:
+          AUTH_SERVICE_URL: {domain-with-subdomain}/auth
+    ```
+
+  - `compose.override.yml`
+
+    ```yml
+    services:
+      app-service:
+        environment:
+          AUTH_SERVICE_URL: localhost/auth
+    ```
 
 ## Using Terraform locally
 
