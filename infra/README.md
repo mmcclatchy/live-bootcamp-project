@@ -219,7 +219,7 @@
 ## user_data.tftpl
 
 - This is used to configure and setup the Production Droplet Server
-- This is a Terraform Template generates a script that will only be run when a Droplet is created
+- This Terraform Template generates a script that will only be run when a Droplet is created
 - The script:
   - Installs packages
   - Sets environment variables
