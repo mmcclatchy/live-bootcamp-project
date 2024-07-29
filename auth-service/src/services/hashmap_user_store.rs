@@ -17,13 +17,13 @@ pub struct HashmapUserStore {
 
 #[allow(dead_code)]
 impl HashmapUserStore {
-    fn new() -> Self {
+    pub fn new() -> Self {
         HashmapUserStore {
             users: HashMap::new(),
         }
     }
 
-    fn add_user(&mut self, user: User) -> Result<(), UserStoreError> {
+    pub fn add_user(&mut self, user: User) -> Result<(), UserStoreError> {
         let email = user.email.clone();
         match self.users.get(&email) {
             Some(_) => Err(UserStoreError::UserAlreadyExists),
@@ -34,14 +34,14 @@ impl HashmapUserStore {
         }
     }
 
-    fn get_user(&self, email: &str) -> Result<User, UserStoreError> {
+    pub fn get_user(&self, email: &str) -> Result<User, UserStoreError> {
         match self.users.get(email) {
             Some(user) => Ok((*user).clone()),
             None => Err(UserStoreError::UserNotFound),
         }
     }
 
-    fn validate_user(&self, email: &str, password: &str) -> Result<(), UserStoreError> {
+    pub fn validate_user(&self, email: &str, password: &str) -> Result<(), UserStoreError> {
         match self.users.get(email) {
             None => Err(UserStoreError::UserNotFound),
             Some(user) => {
@@ -51,6 +51,12 @@ impl HashmapUserStore {
                 Err(UserStoreError::InvalidCredentials)
             }
         }
+    }
+}
+
+impl Default for HashmapUserStore {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
