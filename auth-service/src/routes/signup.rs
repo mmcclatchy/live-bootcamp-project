@@ -4,12 +4,16 @@ use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    domain::{error::AuthAPIError, user::User},
-    services::{app_state::AppState, hashmap_user_store::UserStoreError},
+    domain::{
+        data_stores::{UserStore, UserStoreError},
+        error::AuthAPIError,
+        user::User,
+    },
+    services::app_state::AppState,
 };
 
-pub async fn post(
-    State(state): State<Arc<AppState>>,
+pub async fn post<T: UserStore>(
+    State(state): State<Arc<AppState<T>>>,
     Json(request): Json<SignupRequest>,
 ) -> impl IntoResponse {
     let email = request.email;
@@ -24,7 +28,7 @@ pub async fn post(
         requires_2fa: request.requires_2fa,
     };
     let mut user_store = state.user_store.write().await;
-    user_store.add_user(user).map_err(|e| match e {
+    user_store.add_user(user).await.map_err(|e| match e {
         UserStoreError::UserAlreadyExists => AuthAPIError::UserAlreadyExists,
         _ => AuthAPIError::UnexpectedError,
     })?;

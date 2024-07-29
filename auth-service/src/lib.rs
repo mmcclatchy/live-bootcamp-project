@@ -1,7 +1,7 @@
 use std::{error::Error, sync::Arc};
 
 use axum::{http::StatusCode, response::IntoResponse, routing::post, serve::Serve, Json, Router};
-use domain::error::AuthAPIError;
+use domain::{data_stores::UserStore, error::AuthAPIError};
 use serde::{Deserialize, Serialize};
 use services::app_state::AppState;
 use tower_http::services::ServeDir;
@@ -16,7 +16,10 @@ pub struct Application {
 }
 
 impl Application {
-    pub async fn build(app_state: Arc<AppState>, address: &str) -> Result<Self, Box<dyn Error>> {
+    pub async fn build<T: UserStore>(
+        app_state: Arc<AppState<T>>,
+        address: &str,
+    ) -> Result<Self, Box<dyn Error>> {
         let router = Router::new()
             .nest_service("/", ServeDir::new("assets"))
             .route("/signup", post(routes::signup::post))
