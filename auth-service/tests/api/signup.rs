@@ -1,3 +1,5 @@
+use auth_service::ErrorResponse;
+
 use crate::helpers::{get_random_email, TestApp};
 
 #[tokio::test]
@@ -77,6 +79,14 @@ async fn should_return_400_if_invalid_input() {
             "Failed for input: {:?}",
             test_case
         );
+        assert_eq!(
+            response
+                .json::<ErrorResponse>()
+                .await
+                .expect("Could not deserialize response body to ErrorResponse")
+                .error,
+            "Invalid credentials".to_owned()
+        );
     }
 }
 
@@ -96,5 +106,13 @@ async fn should_return_409_if_email_already_exists() {
         409,
         "Failed for input: {:?}",
         signup_request
+    );
+    assert_eq!(
+        response
+            .json::<ErrorResponse>()
+            .await
+            .expect("Could not deserialize response body to ErrorResponse")
+            .error,
+        "User already exists".to_owned()
     );
 }
