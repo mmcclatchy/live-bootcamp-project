@@ -16,4 +16,8 @@ impl AppState {
             user_store: Arc::new(RwLock::new(user_store)),
         }
     }
+
+    pub fn new_arc(user_store: HashmapUserStore) -> Arc<Self> {
+        Arc::new(Self::new(user_store))
+    }
 }

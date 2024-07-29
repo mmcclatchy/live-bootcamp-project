@@ -1,4 +1,4 @@
-use std::error::Error;
+use std::{error::Error, sync::Arc};
 
 use axum::{routing::post, serve::Serve, Router};
 use services::app_state::AppState;
@@ -14,14 +14,14 @@ pub struct Application {
 }
 
 impl Application {
-    pub async fn build(app_state: AppState, address: &str) -> Result<Self, Box<dyn Error>> {
+    pub async fn build(app_state: Arc<AppState>, address: &str) -> Result<Self, Box<dyn Error>> {
         let router = Router::new()
             .nest_service("/", ServeDir::new("assets"))
-            .nest_service("/signup", post(routes::signup::post))
-            .nest_service("/login", post(routes::login::post))
-            .nest_service("/logout", post(routes::logout::post))
-            .nest_service("/verify-2fa", post(routes::verify_2fa::post))
-            .nest_service("/verify-token", post(routes::verify_token::post))
+            .route("/signup", post(routes::signup::post))
+            .route("/login", post(routes::login::post))
+            .route("/logout", post(routes::logout::post))
+            .route("/verify-2fa", post(routes::verify_2fa::post))
+            .route("/verify-token", post(routes::verify_token::post))
             .with_state(app_state);
         let listener = tokio::net::TcpListener::bind(address).await?;
         let address = listener.local_addr()?.to_string();

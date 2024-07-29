@@ -1,9 +1,25 @@
-use axum::{http::StatusCode, response::IntoResponse, Json};
-use serde::Deserialize;
+use std::sync::Arc;
 
-pub async fn post(Json(request): Json<SignupRequest>) -> impl IntoResponse {
-    println!("{:?}", request);
-    StatusCode::OK.into_response()
+use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
+use serde::{Deserialize, Serialize};
+
+use crate::{domain::user::User, services::app_state::AppState};
+
+pub async fn post(
+    State(state): State<Arc<AppState>>,
+    Json(request): Json<SignupRequest>,
+) -> impl IntoResponse {
+    let user = User {
+        email: request.email,
+        password: request.password,
+        requires_2fa: request.requires_2fa,
+    };
+    let mut user_store = state.user_store.write().await;
+    user_store.add_user(user).unwrap();
+    let response = Json(SignupResponse {
+        message: "User created successfully".to_string(),
+    });
+    (StatusCode::CREATED, response)
 }
 
 #[derive(Deserialize, Debug)]
@@ -12,4 +28,9 @@ pub struct SignupRequest {
     pub password: String,
     #[serde(rename = "requires2FA")]
     pub requires_2fa: bool,
+}
+
+#[derive(Serialize)]
+pub struct SignupResponse {
+    pub message: String,
 }

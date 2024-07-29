@@ -6,7 +6,7 @@ use auth_service::{
 #[tokio::main]
 async fn main() {
     let user_store = HashmapUserStore::new();
-    let app_state = AppState::new(user_store);
+    let app_state = AppState::new_arc(user_store);
     let app = Application::build(app_state, "0.0.0.0:3000")
         .await
         .expect("Failed to build app");
