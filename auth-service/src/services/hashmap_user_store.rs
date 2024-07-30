@@ -64,7 +64,7 @@ mod tests {
     const TEST_USER_EMAIL: &str = "test@email.com";
     const TEST_USER_PASSWORD: &str = "password123";
 
-    fn get_test_user() -> User {
+    fn create_test_user() -> User {
         User {
             email: String::from(TEST_USER_EMAIL),
             password: String::from(TEST_USER_PASSWORD),
@@ -74,22 +74,23 @@ mod tests {
 
     async fn get_store_with_test_user() -> HashmapUserStore {
         let mut store = HashmapUserStore::new();
-        let test_user = get_test_user();
+        let test_user = create_test_user();
         store.add_user(test_user).await.unwrap();
         store
     }
 
     #[tokio::test]
     async fn test_add_user() {
-        let store = get_store_with_test_user().await;
-        let test_user = get_test_user();
-        assert_eq!(store.users.get(TEST_USER_EMAIL), Some(&test_user));
+        let mut store = HashmapUserStore::new();
+        let test_user = create_test_user();
+        store.add_user(test_user.clone()).await.unwrap();
+        assert_eq!(store.users.get(&test_user.email), Some(&test_user));
     }
 
     #[tokio::test]
     async fn test_get_user() {
         let store = get_store_with_test_user().await;
-        let test_user = get_test_user();
+        let test_user = create_test_user();
 
         let output_user = store.get_user(TEST_USER_EMAIL).await.unwrap();
         assert_eq!(output_user, test_user);
@@ -98,10 +99,10 @@ mod tests {
     #[tokio::test]
     async fn test_validate_user_with_valid_input() {
         let store = get_store_with_test_user().await;
-        store
+        assert!(store
             .validate_user(TEST_USER_EMAIL, TEST_USER_PASSWORD)
             .await
-            .unwrap();
+            .is_ok());
     }
 
     #[tokio::test]
