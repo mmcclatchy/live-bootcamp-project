@@ -28,7 +28,6 @@ impl AsRef<str> for Email {
     }
 }
 
-// Implement Display for Email
 impl fmt::Display for Email {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.0)
