@@ -3,6 +3,8 @@ use std::sync::Arc;
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use serde::{Deserialize, Serialize};
 
+use crate::domain::{email::Email, password::Password};
+
 use crate::{
     domain::{
         data_stores::{UserStore, UserStoreError},
@@ -15,16 +17,11 @@ use crate::{
 pub async fn post<T: UserStore>(
     State(state): State<Arc<AppState<T>>>,
     Json(request): Json<SignupRequest>,
-) -> impl IntoResponse {
-    let email = request.email;
-    let password = request.password;
-    if email.is_empty() || !email.contains('@') || password.len() < 8 {
-        return Err(AuthAPIError::InvalidCredentials);
-    }
-
+) -> Result<impl IntoResponse, AuthAPIError> {
     let user = User {
-        email,
-        password,
+        email: Email::parse(request.email).map_err(|_| AuthAPIError::InvalidCredentials)?,
+        password: Password::parse(request.password)
+            .map_err(|_| AuthAPIError::InvalidCredentials)?,
         requires_2fa: request.requires_2fa,
     };
     let mut user_store = state.user_store.write().await;

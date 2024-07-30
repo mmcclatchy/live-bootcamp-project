@@ -2,12 +2,14 @@ use std::collections::HashMap;
 
 use crate::domain::{
     data_stores::{UserStore, UserStoreError},
+    email::Email,
+    password::Password,
     user::User,
 };
 
 #[derive(Clone)]
 pub struct HashmapUserStore {
-    users: HashMap<String, User>,
+    users: HashMap<Email, User>,
 }
 
 impl HashmapUserStore {
@@ -31,18 +33,22 @@ impl UserStore for HashmapUserStore {
         }
     }
 
-    async fn get_user(&self, email: &str) -> Result<User, UserStoreError> {
+    async fn get_user(&self, email: &Email) -> Result<User, UserStoreError> {
         match self.users.get(email) {
             Some(user) => Ok((*user).clone()),
             None => Err(UserStoreError::UserNotFound),
         }
     }
 
-    async fn validate_user(&self, email: &str, password: &str) -> Result<(), UserStoreError> {
+    async fn validate_user(
+        &self,
+        email: &Email,
+        password: &Password,
+    ) -> Result<(), UserStoreError> {
         match self.users.get(email) {
             None => Err(UserStoreError::UserNotFound),
             Some(user) => {
-                if user.password == password {
+                if user.password == *password {
                     return Ok(());
                 }
                 Err(UserStoreError::InvalidCredentials)
@@ -61,13 +67,18 @@ impl Default for HashmapUserStore {
 mod tests {
     use super::*;
 
-    const TEST_USER_EMAIL: &str = "test@email.com";
-    const TEST_USER_PASSWORD: &str = "password123";
+    fn get_test_email() -> Email {
+        Email::parse("test@email.com".to_string()).unwrap()
+    }
+
+    fn get_test_password() -> Password {
+        Password::parse("P@assword123".to_string()).unwrap()
+    }
 
     fn create_test_user() -> User {
         User {
-            email: String::from(TEST_USER_EMAIL),
-            password: String::from(TEST_USER_PASSWORD),
+            email: get_test_email(),
+            password: get_test_password(),
             requires_2fa: false,
         }
     }
@@ -91,35 +102,34 @@ mod tests {
     async fn test_get_user() {
         let store = get_store_with_test_user().await;
         let test_user = create_test_user();
-
-        let output_user = store.get_user(TEST_USER_EMAIL).await.unwrap();
+        let email = get_test_email();
+        let output_user = store.get_user(&email).await.unwrap();
         assert_eq!(output_user, test_user);
     }
 
     #[tokio::test]
     async fn test_validate_user_with_valid_input() {
         let store = get_store_with_test_user().await;
-        assert!(store
-            .validate_user(TEST_USER_EMAIL, TEST_USER_PASSWORD)
-            .await
-            .is_ok());
+        let email = get_test_email();
+        let password = get_test_password();
+        assert!(store.validate_user(&email, &password).await.is_ok());
     }
 
     #[tokio::test]
     async fn test_validate_user_raises_error_when_user_not_found() {
         let store = HashmapUserStore::new();
-        let result = store
-            .validate_user(TEST_USER_EMAIL, TEST_USER_PASSWORD)
-            .await;
+        let email = get_test_email();
+        let password = get_test_password();
+        let result = store.validate_user(&email, &password).await;
         assert_eq!(result, Err(UserStoreError::UserNotFound));
     }
 
     #[tokio::test]
     async fn test_validate_user_raises_error_when_password_does_not_match() {
         let store = get_store_with_test_user().await;
-        let result = store
-            .validate_user(TEST_USER_EMAIL, "invalid_password")
-            .await;
+        let email = get_test_email();
+        let incorrect_password = Password::parse("Inc0rrect!".to_string()).unwrap();
+        let result = store.validate_user(&email, &incorrect_password).await;
         assert_eq!(result, Err(UserStoreError::InvalidCredentials));
     }
 }

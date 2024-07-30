@@ -2,7 +2,7 @@ use std::borrow::Cow;
 use std::fmt;
 use validator::ValidateEmail;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Email(String);
 
 impl Email {

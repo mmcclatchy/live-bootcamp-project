@@ -2,18 +2,20 @@ use auth_service::ErrorResponse;
 
 use crate::helpers::{get_random_email, TestApp};
 
+const VALID_JSON_PASSWORD: &str = "P@assw0rd";
+
 #[tokio::test]
 async fn signup_should_return_422_if_malformed_input() {
     let app = TestApp::new().await;
     let random_email = get_random_email();
     let test_cases = [
         serde_json::json!({
-            "password": "password123",
+            "password": VALID_JSON_PASSWORD,
             "requires2FA": true,
         }),
         serde_json::json!({
             "email": random_email,
-            "password": "password123",
+            "password": VALID_JSON_PASSWORD,
         }),
         serde_json::json!({
             "email": random_email,
@@ -38,7 +40,7 @@ async fn signup_should_return_201_if_valid_input() {
     let random_email = get_random_email();
     let signup_request = serde_json::json!({
         "email": random_email,
-        "password": "password123",
+        "password": VALID_JSON_PASSWORD,
         "requires2FA": true,
     });
     let response = app.post_signup(&signup_request).await;
@@ -56,12 +58,12 @@ async fn should_return_400_if_invalid_input() {
     let test_cases = [
         serde_json::json!({
             "email": "",
-            "password": "password123",
+            "password": VALID_JSON_PASSWORD,
             "requires2FA": true,
         }),
         serde_json::json!({
             "email": "random_email",
-            "password": "password123",
+            "password": VALID_JSON_PASSWORD,
             "requires2FA": true,
         }),
         serde_json::json!({
@@ -96,7 +98,7 @@ async fn should_return_409_if_email_already_exists() {
     let random_email = get_random_email();
     let signup_request = serde_json::json!({
         "email": random_email,
-        "password": "password123",
+        "password": VALID_JSON_PASSWORD,
         "requires2FA": true,
     });
     app.post_signup(&signup_request).await;

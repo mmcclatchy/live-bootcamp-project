@@ -2,7 +2,7 @@ use std::fmt;
 
 const ERROR_MESSAGE: &str = "Invalid Password: Must be at least 8 characters long, contain at least one uppercase character, and contain at least one symbol";
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Password(String);
 
 impl Password {
