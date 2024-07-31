@@ -7,3 +7,8 @@
 .terraform.lock.hcl
 *.backup
 *.tfstate
+**/src/generated/
+app-service/proto/src/auth.rs
+auth-service/proto/src/auth.rs
+app-service/proto/src/generated/
+auth-service/proto/src/generated/

@@ -1,2 +1,9 @@
 [workspace]
-members = ["app-service", "auth-service"]
+members = [
+  "app-service",
+  "app-service/proto",
+  "auth-service",
+  "auth-service/proto"
+]
+
+resolver = "2"

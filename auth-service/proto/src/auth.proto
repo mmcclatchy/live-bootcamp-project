@@ -1,0 +1,25 @@
+syntax = "proto3";
+package auth;
+
+service AuthService {
+  rpc Signup (SignupRequest) returns (SignupResponse);
+  rpc VerifyToken (VerifyTokenRequest) returns (VerifyTokenResponse);
+}
+
+message SignupRequest {
+  string email = 1;
+  string password = 2;
+  bool requires_2fa = 3;
+}
+
+message SignupResponse {
+  string message = 1;
+}
+
+message VerifyTokenRequest {
+  string token = 1;
+}
+
+message VerifyTokenResponse {
+  bool is_valid = 1;
+}

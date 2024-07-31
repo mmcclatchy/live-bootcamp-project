@@ -1,63 +1,89 @@
-use std::{error::Error, sync::Arc};
+use std::net::SocketAddr;
+use std::sync::Arc;
 
-use axum::{http::StatusCode, response::IntoResponse, routing::post, serve::Serve, Json, Router};
-use domain::{data_stores::UserStore, error::AuthAPIError};
-use serde::{Deserialize, Serialize};
+use tonic::{Request, Response, Status};
+
+use auth_proto::{
+    auth_service_server::{AuthService, AuthServiceServer},
+    SignupRequest, SignupResponse, VerifyTokenRequest, VerifyTokenResponse,
+};
+use domain::{
+    data_stores::{UserStore, UserStoreError},
+    email::Email,
+    password::Password,
+    user::User,
+};
 use services::app_state::AppState;
-use tower_http::services::ServeDir;
 
 pub mod domain;
-pub mod routes;
 pub mod services;
 
+pub struct AuthServiceImpl<T: UserStore> {
+    app_state: Arc<AppState<T>>,
+}
+
+impl<T: UserStore> AuthServiceImpl<T> {
+    pub fn new(app_state: Arc<AppState<T>>) -> Self {
+        Self { app_state }
+    }
+}
+
+#[tonic::async_trait]
+impl<T: UserStore + Send + Sync + 'static> AuthService for AuthServiceImpl<T> {
+    async fn signup(
+        &self,
+        request: Request<SignupRequest>,
+    ) -> Result<Response<SignupResponse>, Status> {
+        let req = request.into_inner();
+        let user = User {
+            email: Email::parse(req.email)
+                .map_err(|_| Status::invalid_argument("Invalid email"))?,
+            password: Password::parse(req.password)
+                .map_err(|_| Status::invalid_argument("Invalid password"))?,
+            requires_2fa: req.requires_2fa,
+        };
+
+        let mut user_store = self.app_state.user_store.write().await;
+        user_store.add_user(user).await.map_err(|e| match e {
+            UserStoreError::UserAlreadyExists => Status::already_exists("User already exists"),
+            _ => Status::internal("Unexpected error"),
+        })?;
+
+        Ok(Response::new(SignupResponse {
+            message: "User created successfully".to_string(),
+        }))
+    }
+
+    async fn verify_token(
+        &self,
+        _request: Request<VerifyTokenRequest>,
+    ) -> Result<Response<VerifyTokenResponse>, Status> {
+        unimplemented!("Token verification logic not implemented")
+    }
+}
+
 pub struct Application {
-    server: Serve<Router, Router>,
-    pub address: String,
+    address: SocketAddr,
 }
 
 impl Application {
-    pub async fn build<T: UserStore>(
+    pub fn new(address: SocketAddr) -> Self {
+        Self { address }
+    }
+
+    pub async fn run<T: UserStore + Send + Sync + 'static>(
+        self,
         app_state: Arc<AppState<T>>,
-        address: &str,
-    ) -> Result<Self, Box<dyn Error>> {
-        let router = Router::new()
-            .nest_service("/", ServeDir::new("assets"))
-            .route("/signup", post(routes::signup::post))
-            .route("/login", post(routes::login::post))
-            .route("/logout", post(routes::logout::post))
-            .route("/verify-2fa", post(routes::verify_2fa::post))
-            .route("/verify-token", post(routes::verify_token::post))
-            .with_state(app_state);
-        let listener = tokio::net::TcpListener::bind(address).await?;
-        let address = listener.local_addr()?.to_string();
-        let server = axum::serve(listener, router);
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        println!("gRPC server listening on {}", self.address);
 
-        Ok(Application { server, address })
-    }
+        let auth_service = AuthServiceImpl::new(app_state);
+        let grpc_service = AuthServiceServer::new(auth_service);
 
-    pub async fn run(self) -> Result<(), std::io::Error> {
-        println!("listening on {}", &self.address);
-        self.server.await
-    }
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct ErrorResponse {
-    pub error: String,
-}
-
-impl IntoResponse for AuthAPIError {
-    fn into_response(self) -> axum::response::Response {
-        let (status, error_message) = match self {
-            AuthAPIError::UserAlreadyExists => (StatusCode::CONFLICT, "User already exists"),
-            AuthAPIError::InvalidCredentials => (StatusCode::BAD_REQUEST, "Invalid credentials"),
-            AuthAPIError::UnexpectedError => {
-                (StatusCode::INTERNAL_SERVER_ERROR, "Unexpected Error")
-            }
-        };
-        let body = Json(ErrorResponse {
-            error: error_message.to_string(),
-        });
-        (status, body).into_response()
+        tonic::transport::Server::builder()
+            .add_service(grpc_service)
+            .serve(self.address)
+            .await
+            .map_err(|e| e.into())
     }
 }

@@ -11,6 +11,8 @@ use axum_extra::extract::CookieJar;
 use serde::Serialize;
 use tower_http::services::ServeDir;
 
+use app_proto::{auth_service_client::AuthServiceClient, VerifyTokenRequest};
+
 #[tokio::main]
 async fn main() {
     let app = Router::new()
@@ -32,12 +34,12 @@ struct IndexTemplate {
 }
 
 async fn root() -> impl IntoResponse {
-    let mut address = env::var("AUTH_SERVICE_URL").unwrap_or("localhost/auth".to_owned());
+    let mut address = env::var("AUTH_SERVICE_URL").unwrap_or("http://localhost:50051".to_owned());
     if address.is_empty() {
-        address = "localhost".to_string();
+        address = "http://localhost:50051".to_string();
     }
-    let login_link = format!("http://{}", address);
-    let logout_link = format!("http://{}/logout", address);
+    let login_link = address.to_string();
+    let logout_link = format!("{}/logout", address);
 
     let template = IndexTemplate {
         login_link,
@@ -54,31 +56,25 @@ async fn protected(jar: CookieJar) -> impl IntoResponse {
         }
     };
 
-    let api_client = reqwest::Client::builder().build().unwrap();
+    let auth_hostname =
+        env::var("AUTH_SERVICE_HOST_NAME").unwrap_or("http://localhost:50051".to_owned());
+    let mut client = AuthServiceClient::connect(auth_hostname).await.unwrap();
 
-    let verify_token_body = serde_json::json!({
-        "token": &jwt_cookie.value(),
+    let request = tonic::Request::new(VerifyTokenRequest {
+        token: jwt_cookie.value().to_string(),
     });
 
-    let auth_hostname = env::var("AUTH_SERVICE_HOST_NAME").unwrap_or("0.0.0.0".to_owned());
-    let url = format!("http://{}:3000/verify-token", auth_hostname);
-
-    let response = match api_client.post(&url).json(&verify_token_body).send().await {
-        Ok(response) => response,
-        Err(_) => {
-            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
-        }
-    };
-
-    match response.status() {
-        reqwest::StatusCode::UNAUTHORIZED | reqwest::StatusCode::BAD_REQUEST => {
-            StatusCode::UNAUTHORIZED.into_response()
-        }
-        reqwest::StatusCode::OK => Json(ProtectedRouteResponse {
+    match client.verify_token(request).await {
+        Ok(_) => Json(ProtectedRouteResponse {
             img_url: "https://i.ibb.co/YP90j68/Light-Live-Bootcamp-Certificate.png".to_owned(),
         })
         .into_response(),
-        _ => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Err(status) => match status.code() {
+            tonic::Code::Unauthenticated | tonic::Code::InvalidArgument => {
+                StatusCode::UNAUTHORIZED.into_response()
+            }
+            _ => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        },
     }
 }
 
