@@ -1,6 +1,11 @@
-pub mod generated;
+// This module declaration tells Rust to look for the auth.rs file
+mod auth {
+    // This will include the generated code at compile time
+    tonic::include_proto!("auth");
+}
 
-pub use generated::auth::*;
+// Re-export all items from the auth module
+pub use auth::*;
 
 // Custom implementations for the generated types
 
@@ -31,5 +36,3 @@ impl std::fmt::Display for VerifyTokenResponse {
         write!(f, "VerifyTokenResponse {{ is_valid: {} }}", self.is_valid)
     }
 }
-
-// Any future implementations or helper functions can go below

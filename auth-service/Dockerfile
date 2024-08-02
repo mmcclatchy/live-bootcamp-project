@@ -1,27 +1,38 @@
-# Start with image that has the Rust toolchain installed
-FROM rust:1.77-alpine AS chef
-USER root
-# Add cargo-chef to cache dependencies
-RUN apk add --no-cache musl-dev & cargo install cargo-chef
+# Build stage
+FROM rust:1.77-slim-buster AS builder
+
+# Install necessary build dependencies
+RUN apt-get update && apt-get install -y \
+    pkg-config \
+    libssl-dev \
+    protobuf-compiler \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
-FROM chef AS planner
+# Copy the entire project
 COPY . .
-# Capture info needed to build dependencies
-RUN cargo chef prepare --recipe-path recipe.json
 
-FROM chef AS builder
-COPY --from=planner /app/recipe.json recipe.json
-# Build dependencies - this is the caching Docker layer!
-RUN cargo chef cook --release --recipe-path recipe.json
-# Build application
-COPY . .
-RUN cargo build --release --bin auth-service
+# Build the application
+RUN cargo build --release
 
-# We do not need the Rust toolchain to run the binary!
-# Start with a minimal image and copy over the binary and assets folder.
+# Runtime stage
 FROM debian:buster-slim AS runtime
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
+
+# Copy the binary from the builder stage
 COPY --from=builder /app/target/release/auth-service /usr/local/bin
 COPY --from=builder /app/assets /app/assets
-ENTRYPOINT ["/usr/local/bin/auth-service"]
+
+# Set environment variables
+ENV RUST_BACKTRACE=1
+ENV RUST_LOG=debug
+
+# Set the default command to run the application
+CMD ["/usr/local/bin/auth-service"]

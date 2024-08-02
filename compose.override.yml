@@ -1,22 +1,23 @@
 services:
   app-service:
     build:
-      context: ./app-service # specify directory where local Dockerfile is located
+      context: ./app-service
     environment:
       AUTH_SERVICE_URL: localhost/auth
+      AUTH_SERVICE_HOST_NAME: http://auth-service:50051
+
   auth-service:
     build:
-      context: ./auth-service # specify directory where local Dockerfile is located
+      context: ./auth-service
+    ports:
+      - "50052:50051"
+    environment:
+      - RUST_LOG=debug
+      - RUST_BACKTRACE=1
+    restart: "no"
 
   nginx:
-    image: nginx:latest
     ports:
-      - "80:80"
-      - "443:443"
+      - "8080:8080"
     volumes:
       - ./local/nginx.local.conf:/etc/nginx/nginx.conf:ro
-    depends_on:
-      - app-service
-      - auth-service
-    networks:
-      - app-network

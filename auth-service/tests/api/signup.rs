@@ -3,105 +3,81 @@ use tonic::Request;
 
 use crate::helpers::{get_random_email, TestApp};
 
-const VALID_PASSWORD: &str = "P@assw0rd";
+const VALID_PASSWORD: &str = "P@ssw0rd123";
 
 #[tokio::test]
-async fn signup_should_return_invalid_argument_if_malformed_input() {
+async fn signup_works_for_valid_credentials() {
     let mut app = TestApp::new().await;
-    let random_email = get_random_email();
-    let test_cases = [
-        SignupRequest {
-            email: "".to_string(),
-            password: VALID_PASSWORD.to_string(),
-            requires_2fa: true,
-        },
-        SignupRequest {
-            email: random_email.clone(),
-            password: "".to_string(),
-            requires_2fa: true,
-        },
-    ];
-
-    for test_case in test_cases.iter() {
-        let response = app.client.signup(Request::new(test_case.clone())).await;
-        assert_eq!(
-            response.unwrap_err().code(),
-            tonic::Code::InvalidArgument,
-            "Failed for input: {:?}",
-            test_case
-        );
-    }
-}
-
-#[tokio::test]
-async fn signup_should_return_ok_if_valid_input() {
-    let mut app = TestApp::new().await;
-    let random_email = get_random_email();
-    let signup_request = SignupRequest {
-        email: random_email,
+    let email = get_random_email();
+    let request = Request::new(SignupRequest {
+        email: email.clone(),
         password: VALID_PASSWORD.to_string(),
-        requires_2fa: true,
-    };
+        requires_2fa: false,
+    });
+
     let response = app
         .client
-        .signup(Request::new(signup_request.clone()))
-        .await;
-    assert!(response.is_ok(), "Failed for input: {:?}", signup_request);
-}
-
-#[tokio::test]
-async fn should_return_invalid_argument_if_invalid_input() {
-    let mut app = TestApp::new().await;
-    let test_cases = [
-        SignupRequest {
-            email: "".to_string(),
-            password: VALID_PASSWORD.to_string(),
-            requires_2fa: true,
-        },
-        SignupRequest {
-            email: "random_email".to_string(),
-            password: VALID_PASSWORD.to_string(),
-            requires_2fa: true,
-        },
-        SignupRequest {
-            email: "test@email.com".to_string(),
-            password: "invalid".to_string(),
-            requires_2fa: true,
-        },
-    ];
-
-    for test_case in test_cases.iter() {
-        let response = app.client.signup(Request::new(test_case.clone())).await;
-        assert_eq!(
-            response.unwrap_err().code(),
-            tonic::Code::InvalidArgument,
-            "Failed for input: {:?}",
-            test_case
-        );
-    }
-}
-
-#[tokio::test]
-async fn should_return_already_exists_if_email_already_exists() {
-    let mut app = TestApp::new().await;
-    let random_email = get_random_email();
-    let signup_request = SignupRequest {
-        email: random_email,
-        password: VALID_PASSWORD.to_string(),
-        requires_2fa: true,
-    };
-    app.client
-        .signup(Request::new(signup_request.clone()))
+        .signup(request)
         .await
-        .unwrap();
-    let response = app
-        .client
-        .signup(Request::new(signup_request.clone()))
-        .await;
+        .expect("Failed to send signup request");
     assert_eq!(
-        response.unwrap_err().code(),
+        response.into_inner().message,
+        "User created successfully".to_string()
+    );
+}
+
+#[tokio::test]
+async fn signup_fails_with_invalid_email() {
+    let mut app = TestApp::new().await;
+    let request = Request::new(SignupRequest {
+        email: "not-an-email".to_string(),
+        password: VALID_PASSWORD.to_string(),
+        requires_2fa: false,
+    });
+
+    let response = app.client.signup(request).await;
+    assert!(response.is_err());
+    assert_eq!(response.unwrap_err().code(), tonic::Code::InvalidArgument);
+}
+
+#[tokio::test]
+async fn signup_fails_with_weak_password() {
+    let mut app = TestApp::new().await;
+    let email = get_random_email();
+    let request = Request::new(SignupRequest {
+        email,
+        password: "weak".to_string(),
+        requires_2fa: false,
+    });
+
+    let response = app.client.signup(request).await;
+    assert!(response.is_err());
+    assert_eq!(response.unwrap_err().code(), tonic::Code::InvalidArgument);
+}
+
+#[tokio::test]
+async fn signup_fails_if_email_already_exists() {
+    let mut app = TestApp::new().await;
+    let email = get_random_email();
+    let signup_request = SignupRequest {
+        email: email.clone(),
+        password: VALID_PASSWORD.to_string(),
+        requires_2fa: false,
+    };
+
+    let request = Request::new(signup_request.clone());
+    let response = app.client.signup(request).await;
+    assert!(response.is_ok(), "First signup should succeed");
+
+    // Second signup with the same email should fail
+    let request = Request::new(signup_request);
+    let response = app.client.signup(request).await;
+    assert!(response.is_err(), "Second signup should fail");
+    let error = response.unwrap_err();
+    assert_eq!(
+        error.code(),
         tonic::Code::AlreadyExists,
-        "Failed for input: {:?}",
-        signup_request
+        "Expected AlreadyExists error, got: {:?}",
+        error
     );
 }

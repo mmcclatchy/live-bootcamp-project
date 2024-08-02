@@ -1,8 +1,13 @@
-use std::env;
-use std::fs;
-use std::path::PathBuf;
+use log::{error, info};
+use std::{env, fs, panic, path::PathBuf};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    env_logger::init();
+
+    panic::set_hook(Box::new(|panic_info| {
+        error!("Panic occurred: {:?}", panic_info);
+    }));
+
     let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
     let dest_path = PathBuf::from("src").join("generated");
 
@@ -19,7 +24,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create a mod.rs file in the generated directory
     fs::write(dest_path.join("mod.rs"), "pub mod auth;\n")?;
 
-    println!("cargo:rerun-if-changed=src/auth.proto");
-    println!("cargo:rerun-if-changed=build.rs");
+    info!("cargo:rerun-if-changed=src/auth.proto");
+    info!("cargo:rerun-if-changed=build.rs");
     Ok(())
 }

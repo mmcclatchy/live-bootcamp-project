@@ -20,3 +20,8 @@ tonic = "0.12.1"
 
 [build-dependencies]
 tonic-build = "0.12.1"
+
+
+[[bin]]
+name = "app-service"
+path = "src/main.rs"

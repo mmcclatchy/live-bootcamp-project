@@ -1,9 +1,13 @@
 [workspace]
 members = [
   "app-service",
-  "app-service/proto",
   "auth-service",
-  "auth-service/proto"
+  "app-service/proto",
+  "auth-service/proto",
 ]
 
 resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
