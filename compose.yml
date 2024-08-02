@@ -24,6 +24,7 @@ services:
       dockerfile: Dockerfile
     restart: "always"
     expose:
+      - "3000"
       - "50051"
     networks:
       - app-network

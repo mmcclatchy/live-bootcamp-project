@@ -1,81 +1,128 @@
 use auth_proto::auth_service_client::AuthServiceClient;
-use auth_proto::auth_service_server::AuthServiceServer;
 use auth_service::{
     services::{app_state::AppState, hashmap_user_store::HashmapUserStore},
-    AuthServiceImpl,
+    GRPCApp, RESTApp,
 };
+use reqwest;
 use std::net::SocketAddr;
-use std::sync::atomic::{AtomicU16, Ordering};
 use tokio::sync::oneshot;
 use tokio::time::{sleep, Duration};
 use tonic::transport::Channel;
 use uuid::Uuid;
 
-static PORT_COUNTER: AtomicU16 = AtomicU16::new(50051);
+pub struct RESTTestApp {
+    pub address: String,
+    pub client: reqwest::Client,
+    shutdown: Option<oneshot::Sender<()>>,
+}
 
-pub struct TestApp {
+pub struct GRPCTestApp {
     pub address: SocketAddr,
     pub client: AuthServiceClient<Channel>,
     shutdown: Option<oneshot::Sender<()>>,
 }
 
-impl TestApp {
+impl RESTTestApp {
     pub async fn new() -> Self {
         let user_store = HashmapUserStore::new();
         let app_state = AppState::new_arc(user_store);
 
-        for _ in 0..10 {
-            // Try up to 10 different ports
-            let port = PORT_COUNTER.fetch_add(1, Ordering::SeqCst);
-            let addr: SocketAddr = format!("127.0.0.1:{}", port)
-                .parse()
-                .expect("Failed to parse address");
-            let auth_service = AuthServiceImpl::new(app_state.clone());
+        let rest_app = RESTApp::new(app_state);
+        let address = rest_app.address.clone();
 
-            let (tx, rx) = oneshot::channel();
+        let (tx, rx) = oneshot::channel();
 
-            // Start the server in a separate task
-            let server_handle = tokio::spawn(async move {
-                if let Err(e) = tonic::transport::Server::builder()
-                    .add_service(AuthServiceServer::new(auth_service))
-                    .serve_with_shutdown(addr, async {
-                        rx.await.ok();
-                    })
-                    .await
-                {
-                    eprintln!("Server error on port {}: {:?}", port, e);
-                } else {
-                    println!("Server on port {} shut down gracefully", port);
-                }
-            });
+        tokio::spawn(async move {
+            tokio::select! {
+                _ = rest_app.run() => {},
+                _ = rx => {},
+            }
+        });
 
-            // Give the server a moment to start
-            sleep(Duration::from_millis(100)).await;
+        // Wait for server to start
+        sleep(Duration::from_millis(100)).await;
 
-            // Try to connect to the server
-            match AuthServiceClient::connect(format!("http://{}", addr)).await {
-                Ok(client) => {
-                    println!("Successfully connected to server on port {}", port);
-                    return TestApp {
-                        address: addr,
-                        client,
-                        shutdown: Some(tx),
-                    };
-                }
-                Err(e) => {
-                    eprintln!("Failed to connect on port {}: {:?}", port, e);
-                    // Ensure the server is shut down before trying the next port
-                    let _ = tx.send(());
-                    let _ = server_handle.await;
+        let client = reqwest::Client::new();
+
+        RESTTestApp {
+            address: format!("http://{}", address),
+            client,
+            shutdown: Some(tx),
+        }
+    }
+
+    pub async fn post_signup<Body>(&self, body: &Body) -> reqwest::Response
+    where
+        Body: serde::Serialize,
+    {
+        self.client
+            .post(&format!("{}/signup", &self.address))
+            .json(body)
+            .send()
+            .await
+            .expect("Failed to execute request.")
+    }
+
+    pub async fn get_error_message(response: reqwest::Response) -> String {
+        response
+            .json::<serde_json::Value>()
+            .await
+            .expect("Failed to parse error response")
+            .get("error")
+            .and_then(|v| v.as_str())
+            .unwrap_or("Unknown error")
+            .to_string()
+    }
+
+    // Add other REST helper methods here (login, logout, verify_2fa, verify_token)...
+}
+
+impl GRPCTestApp {
+    pub async fn new() -> Self {
+        let user_store = HashmapUserStore::new();
+        let app_state = AppState::new_arc(user_store);
+
+        let grpc_app = GRPCApp::new(app_state);
+        let address = grpc_app.address;
+
+        let (tx, rx) = oneshot::channel();
+
+        tokio::spawn(async move {
+            tokio::select! {
+                _ = grpc_app.run() => {},
+                _ = rx => {},
+            }
+        });
+
+        // Wait for server to start and attempt to connect
+        let client = loop {
+            match AuthServiceClient::connect(format!("http://{}", address)).await {
+                Ok(client) => break client,
+                Err(_) => {
+                    sleep(Duration::from_millis(100)).await;
                 }
             }
-        }
+        };
 
-        panic!("Failed to start the server after multiple attempts");
+        GRPCTestApp {
+            address,
+            client,
+            shutdown: Some(tx),
+        }
+    }
+
+    // Add gRPC helper methods here if needed...
+}
+
+impl Drop for RESTTestApp {
+    fn drop(&mut self) {
+        if let Some(tx) = self.shutdown.take() {
+            let _ = tx.send(());
+        }
     }
 }
 
-impl Drop for TestApp {
+impl Drop for GRPCTestApp {
     fn drop(&mut self) {
         if let Some(tx) = self.shutdown.take() {
             let _ = tx.send(());

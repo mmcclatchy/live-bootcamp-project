@@ -10,6 +10,7 @@ services:
     build:
       context: ./auth-service
     ports:
+      - "3000"
       - "50052:50051"
     environment:
       - RUST_LOG=debug

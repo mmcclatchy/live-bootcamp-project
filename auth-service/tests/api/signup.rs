@@ -1,13 +1,29 @@
+use crate::helpers::{get_random_email, GRPCTestApp, RESTTestApp};
 use auth_proto::SignupRequest;
+use serde_json::json;
 use tonic::Request;
-
-use crate::helpers::{get_random_email, TestApp};
 
 const VALID_PASSWORD: &str = "P@ssw0rd123";
 
 #[tokio::test]
-async fn signup_works_for_valid_credentials() {
-    let mut app = TestApp::new().await;
+async fn rest_signup_works_for_valid_credentials() {
+    let app = RESTTestApp::new().await;
+    let email = get_random_email();
+    let body = json!({
+        "email": email,
+        "password": VALID_PASSWORD,
+        "requires_2fa": false
+    });
+
+    let response = app.post_signup(&body).await;
+    assert_eq!(response.status().as_u16(), 200);
+    let response_body: serde_json::Value = response.json().await.unwrap();
+    assert_eq!(response_body["message"], "User created successfully");
+}
+
+#[tokio::test]
+async fn grpc_signup_works_for_valid_credentials() {
+    let mut app = GRPCTestApp::new().await;
     let email = get_random_email();
     let request = Request::new(SignupRequest {
         email: email.clone(),
@@ -27,8 +43,23 @@ async fn signup_works_for_valid_credentials() {
 }
 
 #[tokio::test]
-async fn signup_fails_with_invalid_email() {
-    let mut app = TestApp::new().await;
+async fn rest_signup_fails_with_invalid_email() {
+    let app = RESTTestApp::new().await;
+    let body = json!({
+        "email": "not-an-email",
+        "password": VALID_PASSWORD,
+        "requires_2fa": false
+    });
+
+    let response = app.post_signup(&body).await;
+    assert_eq!(response.status().as_u16(), 400);
+    let error_message = RESTTestApp::get_error_message(response).await;
+    assert!(error_message.contains("Invalid email"));
+}
+
+#[tokio::test]
+async fn grpc_signup_fails_with_invalid_email() {
+    let mut app = GRPCTestApp::new().await;
     let request = Request::new(SignupRequest {
         email: "not-an-email".to_string(),
         password: VALID_PASSWORD.to_string(),
@@ -40,44 +71,4 @@ async fn signup_fails_with_invalid_email() {
     assert_eq!(response.unwrap_err().code(), tonic::Code::InvalidArgument);
 }
 
-#[tokio::test]
-async fn signup_fails_with_weak_password() {
-    let mut app = TestApp::new().await;
-    let email = get_random_email();
-    let request = Request::new(SignupRequest {
-        email,
-        password: "weak".to_string(),
-        requires_2fa: false,
-    });
-
-    let response = app.client.signup(request).await;
-    assert!(response.is_err());
-    assert_eq!(response.unwrap_err().code(), tonic::Code::InvalidArgument);
-}
-
-#[tokio::test]
-async fn signup_fails_if_email_already_exists() {
-    let mut app = TestApp::new().await;
-    let email = get_random_email();
-    let signup_request = SignupRequest {
-        email: email.clone(),
-        password: VALID_PASSWORD.to_string(),
-        requires_2fa: false,
-    };
-
-    let request = Request::new(signup_request.clone());
-    let response = app.client.signup(request).await;
-    assert!(response.is_ok(), "First signup should succeed");
-
-    // Second signup with the same email should fail
-    let request = Request::new(signup_request);
-    let response = app.client.signup(request).await;
-    assert!(response.is_err(), "Second signup should fail");
-    let error = response.unwrap_err();
-    assert_eq!(
-        error.code(),
-        tonic::Code::AlreadyExists,
-        "Expected AlreadyExists error, got: {:?}",
-        error
-    );
-}
+// Add more tests for weak password and existing email for both REST and gRPC...

@@ -1,50 +1,42 @@
 use std::sync::Arc;
 
-use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
+use axum::{extract::State, Json};
 use serde::{Deserialize, Serialize};
 
-use crate::domain::{email::Email, password::Password};
-
-use crate::{
-    domain::{
-        data_stores::{UserStore, UserStoreError},
-        error::AuthAPIError,
-        user::User,
-    },
-    services::app_state::AppState,
+use crate::domain::data_stores::UserStoreError;
+use crate::domain::{
+    data_stores::UserStore, email::Email, error::AuthAPIError, password::Password, user::User,
 };
+use crate::services::app_state::AppState;
+
+#[derive(Deserialize)]
+pub struct SignupRequest {
+    email: String,
+    password: String,
+    requires_2fa: bool,
+}
+
+#[derive(Serialize)]
+pub struct SignupResponse {
+    message: String,
+}
 
 pub async fn post<T: UserStore>(
     State(state): State<Arc<AppState<T>>>,
-    Json(request): Json<SignupRequest>,
-) -> Result<impl IntoResponse, AuthAPIError> {
-    let user = User {
-        email: Email::parse(request.email).map_err(|_| AuthAPIError::InvalidCredentials)?,
-        password: Password::parse(request.password)
-            .map_err(|_| AuthAPIError::InvalidCredentials)?,
-        requires_2fa: request.requires_2fa,
-    };
+    Json(payload): Json<SignupRequest>,
+) -> Result<Json<SignupResponse>, AuthAPIError> {
+    let email = Email::parse(payload.email).map_err(AuthAPIError::InvalidEmail)?;
+    let password = Password::parse(payload.password).map_err(AuthAPIError::InvalidPassword)?;
+
+    let user = User::new(email, password, payload.requires_2fa);
+
     let mut user_store = state.user_store.write().await;
     user_store.add_user(user).await.map_err(|e| match e {
         UserStoreError::UserAlreadyExists => AuthAPIError::UserAlreadyExists,
         _ => AuthAPIError::UnexpectedError,
     })?;
 
-    let response = SignupResponse {
+    Ok(Json(SignupResponse {
         message: "User created successfully".to_string(),
-    };
-    Ok((StatusCode::CREATED, Json(response)))
-}
-
-#[derive(Deserialize, Debug)]
-pub struct SignupRequest {
-    pub email: String,
-    pub password: String,
-    #[serde(rename = "requires2FA")]
-    pub requires_2fa: bool,
-}
-
-#[derive(Serialize)]
-pub struct SignupResponse {
-    pub message: String,
+    }))
 }
