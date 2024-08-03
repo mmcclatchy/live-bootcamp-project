@@ -101,7 +101,7 @@ impl GRPCTestApp {
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
         // Create the gRPC client
-        let client = AuthServiceClient::connect("http://0.0.0.0:50052")
+        let client = AuthServiceClient::connect("http://0.0.0.0:50051")
             .await
             .expect("Failed to create gRPC client");
 

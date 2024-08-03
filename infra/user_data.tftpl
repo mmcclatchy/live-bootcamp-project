@@ -2,15 +2,13 @@
 exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
 echo "Starting user data script execution..."
 
-export NGINX_CONF=/etc/nginx/sites-available/default
-
-# Update and install Nginx and Certbot
+# Update and install Docker and Docker Compose
 apt-get update
-apt-get install -y nginx certbot python3-certbot-nginx apt-transport-https ca-certificates curl software-properties-common
+apt-get install -y apt-transport-https ca-certificates curl software-properties-common
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
 add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
 apt-get update
-apt-get install -y docker-ce docker-ce-cli containerd.io
+apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
 
 # Configure SSH to allow password authentication and disable public key authentication
 echo "Configuring SSH..."
@@ -25,132 +23,10 @@ echo "root:${root_password}" | chpasswd
 # Restart SSH service to apply changes
 systemctl restart ssh
 
-# Configure initial Nginx setup
-echo "Configuring initial Nginx setup..."
-echo '
-server {
-    listen 80;
-    listen [::]:80;
-    server_name ${full_domain_name};
+# Change to the app directory
+cd /app
 
-    location ~ /.well-known/acme-challenge {
-        allow all;
-        root /var/www/html;
-    }
-
-    location / {
-        return 301 https://$host$request_uri;
-    }
-}
-' > $NGINX_CONF
-
-# Restart Nginx to apply changes
-echo "Restarting Nginx..."
-systemctl restart nginx
-
-# Run Certbot to obtain SSL certificate
-echo "Running Certbot..."
-certbot --nginx -d ${full_domain_name} --non-interactive --agree-tos -m ${email_address}
-
-# Configure Nginx
-echo "Configuring Nginx with SSL and additional locations..."
-echo '
-server {
-    listen 80;
-    listen [::]:80;
-    server_name ${full_domain_name};
-
-    location /app/ {
-        proxy_pass http://127.0.0.1:8000/;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_cache_bypass $http_upgrade;
-    }
-
-    location /auth/ {
-        proxy_pass http://127.0.0.1:3000/;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_cache_bypass $http_upgrade;
-    }
-
-    location /app/assets/ {
-        proxy_pass http://127.0.0.1:8000/assets/;
-    }
-
-    location /auth/assets/ {
-        proxy_pass http://127.0.0.1:3000/;
-    }
-
-    location ~ /.well-known/acme-challenge {
-        allow all;
-        root /var/www/html;
-    }
-
-    # This line redirects domain requests to HTTPS, but allows IP-based requests over HTTP
-    if ($host = ${full_domain_name}) {
-        return 301 https://$host$request_uri;
-    }
-}
-
-server {
-    listen 443 ssl;
-    listen [::]:443 ssl;
-    server_name ${full_domain_name};
-
-    ssl_certificate /etc/letsencrypt/live/${full_domain_name}/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/${full_domain_name}/privkey.pem;
-    include /etc/letsencrypt/options-ssl-nginx.conf;
-    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
-
-    location /app/ {
-        proxy_pass http://127.0.0.1:8000/;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_cache_bypass $http_upgrade;
-    }
-
-    location /auth/ {
-        proxy_pass http://127.0.0.1:3000/;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_cache_bypass $http_upgrade;
-    }
-
-    location /app/assets/ {
-        proxy_pass http://127.0.0.1:8000/assets/;
-    }
-
-    location /auth/assets/ {
-        proxy_pass http://127.0.0.1:3000/;
-    }
-
-    location ~ /.well-known/acme-challenge {
-        allow all;
-        root /var/www/html;
-    }
-}
-' > /etc/nginx/sites-available/default
-
-# Create symbolic link
-ln -s /etc/nginx/sites-available/default /etc/nginx/sites-enabled/
-
-# Restart Nginx to apply changes
-echo "Restarting Nginx..."
-systemctl restart nginx
-
-# Ensure Nginx starts on boot
-systemctl enable nginx
-
-# Final Nginx restart
-systemctl restart nginx
+# Start the Docker Compose services
+docker compose up -d
 
 echo "User data script execution completed."

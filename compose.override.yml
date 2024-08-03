@@ -3,31 +3,29 @@ services:
     build:
       context: ./app-service
     environment:
-      AUTH_SERVICE_URL: localhost/auth
+      AUTH_SERVICE_URL: http://localhost/auth
       AUTH_SERVICE_HOST_NAME: http://auth-service:50051
+    ports:
+      - "8000:8000"
 
   auth-service:
     build:
       context: ./auth-service
     ports:
-      - "3000"
-      - "50052:50051"
+      - "3000:3000"
+      - "50051:50051"
     environment:
       - RUST_LOG=debug
       - RUST_BACKTRACE=1
     restart: "no"
 
   nginx:
-    image: nginx:latest
     ports:
       - "80:80"
-      - "443:443"
-      - "8080:8080"
-      - "50051:50051"
     volumes:
-      - ./local/nginx.local.conf:/etc/nginx/nginx.conf:ro
-    depends_on:
-      - app-service
-      - auth-service
-    networks:
-      - app-network
+      - ./nginx/nginx.local.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d.local:/etc/nginx/conf.d:ro
+
+volumes:
+  certbot-conf:
+  certbot-www:
