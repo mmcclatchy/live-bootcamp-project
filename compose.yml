@@ -29,22 +29,8 @@ services:
     networks:
       - app-network
     environment:
-      - RUST_LOG=debug
+      - RUST_LOG=info
       - RUST_BACKTRACE=1
-
-  nginx:
-    image: nginx:latest
-    ports:
-      - "80:80"
-      - "443:443"
-      - "50051:50051"
-    volumes:
-      - ./local/nginx.local.conf:/etc/nginx/nginx.conf:ro
-    depends_on:
-      - app-service
-      - auth-service
-    networks:
-      - app-network
 
 networks:
   app-network:

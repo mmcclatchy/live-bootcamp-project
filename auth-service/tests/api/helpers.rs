@@ -4,7 +4,7 @@ use auth_service::{
     GRPCApp, RESTApp,
 };
 use reqwest;
-use std::net::SocketAddr;
+use std::{net::SocketAddr, sync::Arc};
 use tokio::sync::oneshot;
 use tokio::time::{sleep, Duration};
 use tonic::transport::Channel;
@@ -13,12 +13,6 @@ use uuid::Uuid;
 pub struct RESTTestApp {
     pub address: String,
     pub client: reqwest::Client,
-    shutdown: Option<oneshot::Sender<()>>,
-}
-
-pub struct GRPCTestApp {
-    pub address: SocketAddr,
-    pub client: AuthServiceClient<Channel>,
     shutdown: Option<oneshot::Sender<()>>,
 }
 
@@ -77,16 +71,25 @@ impl RESTTestApp {
     // Add other REST helper methods here (login, logout, verify_2fa, verify_token)...
 }
 
+pub struct GRPCTestApp {
+    pub address: SocketAddr,
+    pub client: AuthServiceClient<Channel>,
+    shutdown: Option<oneshot::Sender<()>>,
+}
+
 impl GRPCTestApp {
     pub async fn new() -> Self {
         let user_store = HashmapUserStore::new();
-        let app_state = AppState::new_arc(user_store);
+        let app_state = Arc::new(AppState::new(user_store));
 
+        // Create GRPCApp instance
         let grpc_app = GRPCApp::new(app_state);
         let address = grpc_app.address;
 
+        // Create shutdown channel
         let (tx, rx) = oneshot::channel();
 
+        // Spawn the gRPC server
         tokio::spawn(async move {
             tokio::select! {
                 _ = grpc_app.run() => {},
@@ -94,30 +97,18 @@ impl GRPCTestApp {
             }
         });
 
-        // Wait for server to start and attempt to connect
-        let client = loop {
-            match AuthServiceClient::connect(format!("http://{}", address)).await {
-                Ok(client) => break client,
-                Err(_) => {
-                    sleep(Duration::from_millis(100)).await;
-                }
-            }
-        };
+        // Wait for the server to start
+        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+
+        // Create the gRPC client
+        let client = AuthServiceClient::connect("http://0.0.0.0:50052")
+            .await
+            .expect("Failed to create gRPC client");
 
         GRPCTestApp {
             address,
             client,
             shutdown: Some(tx),
-        }
-    }
-
-    // Add gRPC helper methods here if needed...
-}
-
-impl Drop for RESTTestApp {
-    fn drop(&mut self) {
-        if let Some(tx) = self.shutdown.take() {
-            let _ = tx.send(());
         }
     }
 }

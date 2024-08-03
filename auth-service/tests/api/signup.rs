@@ -12,13 +12,28 @@ async fn rest_signup_works_for_valid_credentials() {
     let body = json!({
         "email": email,
         "password": VALID_PASSWORD,
-        "requires_2fa": false
+        "requires2FA": false
     });
 
     let response = app.post_signup(&body).await;
     assert_eq!(response.status().as_u16(), 200);
     let response_body: serde_json::Value = response.json().await.unwrap();
     assert_eq!(response_body["message"], "User created successfully");
+}
+
+#[tokio::test]
+async fn rest_signup_fails_with_invalid_email() {
+    let app = RESTTestApp::new().await;
+    let body = json!({
+        "email": "not-an-email",
+        "password": VALID_PASSWORD,
+        "requires2FA": false
+    });
+
+    let response = app.post_signup(&body).await;
+    assert_eq!(response.status().as_u16(), 400);
+    let error_message = RESTTestApp::get_error_message(response).await;
+    assert!(error_message.contains("Invalid email"));
 }
 
 #[tokio::test]
@@ -43,21 +58,6 @@ async fn grpc_signup_works_for_valid_credentials() {
 }
 
 #[tokio::test]
-async fn rest_signup_fails_with_invalid_email() {
-    let app = RESTTestApp::new().await;
-    let body = json!({
-        "email": "not-an-email",
-        "password": VALID_PASSWORD,
-        "requires_2fa": false
-    });
-
-    let response = app.post_signup(&body).await;
-    assert_eq!(response.status().as_u16(), 400);
-    let error_message = RESTTestApp::get_error_message(response).await;
-    assert!(error_message.contains("Invalid email"));
-}
-
-#[tokio::test]
 async fn grpc_signup_fails_with_invalid_email() {
     let mut app = GRPCTestApp::new().await;
     let request = Request::new(SignupRequest {
@@ -68,7 +68,7 @@ async fn grpc_signup_fails_with_invalid_email() {
 
     let response = app.client.signup(request).await;
     assert!(response.is_err());
-    assert_eq!(response.unwrap_err().code(), tonic::Code::InvalidArgument);
+    let error = response.unwrap_err();
+    assert_eq!(error.code(), tonic::Code::InvalidArgument);
+    assert!(error.message().contains("Invalid email"));
 }
-
-// Add more tests for weak password and existing email for both REST and gRPC...

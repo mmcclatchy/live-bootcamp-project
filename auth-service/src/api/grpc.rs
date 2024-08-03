@@ -34,7 +34,7 @@ impl<T: UserStore + Send + Sync + 'static> AuthService for GRPCAuthService<T> {
         &self,
         request: Request<SignupRequest>,
     ) -> Result<Response<SignupResponse>, Status> {
-        info!("Received signup request");
+        info!("[gRPC][signup] Received request:  {:?}", request);
 
         let req = request.into_inner();
         let email = Email::parse(req.email).map_err(AuthAPIError::InvalidEmail)?;
