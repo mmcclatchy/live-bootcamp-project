@@ -113,13 +113,10 @@ jobs:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
 
-    - name: Install sshpass
-      run: sudo apt-get install sshpass
-
     - name: Copy files to droplet
       run: |
         sshpass -v -p ${{ secrets.DROPLET_PASSWORD }} scp -o StrictHostKeyChecking=no compose.yml root@${{ vars.DROPLET_IP }}:~
-        sshpass -v -p ${{ secrets.DROPLET_PASSWORD }} scp -r -o StrictHostKeyChecking=no nginx root@${{ vars.DROPLET_IP }}:~
+        sshpass -v -p ${{ secrets.DROPLET_PASSWORD }} scp -o StrictHostKeyChecking=no nginx/nginx.prod.conf root@${{ vars.DROPLET_IP }}:/etc/nginx/nginx.conf
 
     - name: Deploy
       uses: appleboy/ssh-action@master
@@ -137,9 +134,6 @@ jobs:
 
           # Replace placeholders in the Nginx config
           sed -i 's/\$DOMAIN_NAME/${{ vars.DOMAIN_NAME }}/g' nginx/nginx.prod.conf
-
-          # Copy the production Nginx config to the correct location
-          cp nginx/nginx.prod.conf nginx/nginx.conf
 
           docker compose up -d
 
