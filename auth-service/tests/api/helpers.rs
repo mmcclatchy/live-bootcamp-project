@@ -13,7 +13,7 @@ use uuid::Uuid;
 pub struct RESTTestApp {
     pub address: String,
     pub client: reqwest::Client,
-    shutdown: Option<oneshot::Sender<()>>,
+    _shutdown: Option<oneshot::Sender<()>>,
 }
 
 impl RESTTestApp {
@@ -41,7 +41,7 @@ impl RESTTestApp {
         RESTTestApp {
             address: format!("http://{}", address),
             client,
-            shutdown: Some(tx),
+            _shutdown: Some(tx),
         }
     }
 
