@@ -25,6 +25,10 @@ provider "namecheap" {
   api_key   = var.namecheap_api_key
 }
 
+locals {
+  full_domain_name = "${var.subdomain_name}.${var.domain_name}"
+}
+
 resource "digitalocean_project" "bootcamp" {
   name    = "live-bootcamp"
   purpose = "Class project / Educational purposes"
@@ -39,7 +43,7 @@ resource "digitalocean_droplet" "monorepo" {
   user_data = templatefile("${path.module}/user_data.tftpl", {
     root_password    = var.droplet_root_password
     email_address    = var.personal_email_address
-    full_domain_name = "${var.subdomain_name}.${var.domain_name}"
+    full_domain_name = local.full_domain_name
   })
 }
 
