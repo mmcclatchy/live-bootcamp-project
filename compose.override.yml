@@ -16,8 +16,8 @@ services:
       - "50051:50051"
     environment:
       - RUST_LOG=debug
-      - RUST_BACKTRACE=1
-    restart: "no"
+      - RUST_BACKTRACE=full
+    restart: unless-stopped
 
   nginx:
     ports:

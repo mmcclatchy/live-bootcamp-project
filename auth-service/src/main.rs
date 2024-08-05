@@ -1,13 +1,25 @@
+use std::io::Write;
+
 use auth_service::{
     services::{app_state::AppState, hashmap_user_store::HashmapUserStore},
     GRPCApp, RESTApp,
 };
 use log::{error, info};
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
+    let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
 
+    tracing_subscriber::registry()
+        .with(env_filter)
+        .with(tracing_subscriber::fmt::layer().with_writer(std::io::stderr))
+        .try_init()
+        .unwrap_or_else(|e| eprintln!("Failed to initialize tracing: {:?}", e));
+
+    eprintln!("Tracing initialized successfully");
+    std::io::stderr().flush().unwrap();
     info!("Starting auth service");
 
     let user_store = HashmapUserStore::new();

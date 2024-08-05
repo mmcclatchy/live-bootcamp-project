@@ -1,13 +1,22 @@
+use std::io::Write;
 use std::sync::Arc;
 
 use crate::domain::{data_stores::UserStore, error::AuthAPIError};
 use crate::routes;
 use crate::services::app_state::AppState;
+use axum::body::Body;
+use axum::extract::Request;
+use axum::middleware::{from_fn, Next};
 use axum::response::Response;
 use axum::{http::StatusCode, response::IntoResponse, routing::post, Json, Router};
 use log::info;
 use serde::{Deserialize, Serialize};
-use tower_http::services::ServeDir;
+use tower_http::{services::ServeDir, trace::TraceLayer};
+
+async fn log_request(req: Request<Body>, next: Next) -> impl IntoResponse {
+    info!("Received request: {} {}", req.method(), req.uri());
+    next.run(req).await
+}
 
 pub struct RESTApp {
     pub address: String,
@@ -18,6 +27,8 @@ impl RESTApp {
     pub fn new<T: UserStore + Send + Sync + 'static>(app_state: Arc<AppState<T>>) -> Self {
         let address = String::from("0.0.0.0:3000");
         let router = Router::new()
+            .layer(TraceLayer::new_for_http())
+            .layer(from_fn(log_request))
             .nest_service("/", ServeDir::new("assets"))
             .route("/signup", post(routes::signup::post))
             .route("/login", post(routes::login::post))
@@ -30,8 +41,15 @@ impl RESTApp {
     }
 
     pub async fn run(self) -> Result<(), std::io::Error> {
+        eprintln!("About to start REST server on {}", self.address);
+        std::io::stderr().flush().unwrap();
+
         info!("REST server listening on {}", self.address);
         let listener = tokio::net::TcpListener::bind(&self.address).await?;
+
+        eprintln!("Listener bound successfully");
+        std::io::stderr().flush().unwrap();
+
         axum::serve(listener, self.router).await
     }
 }
