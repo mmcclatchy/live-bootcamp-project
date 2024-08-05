@@ -24,8 +24,6 @@ services:
       - "80:80"
     volumes:
       - ./nginx/nginx.local.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/conf.d.local:/etc/nginx/conf.d:ro
+    command: null
 
-volumes:
-  certbot-conf:
-  certbot-www:
+  certbot: null

@@ -9,6 +9,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
 
     steps:
       # Checkout code from the repository
@@ -62,11 +64,12 @@ jobs:
 
     - name: Build and push Docker images
       uses: docker/bake-action@v2.3.0
+      env:
+        ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
       with:
         push: true
         files: |
           compose.yml
-          compose.override.yml
         set: |
           *.cache-from=type=gha
           *.cache-to=type=gha,mode=max
@@ -88,8 +91,10 @@ jobs:
     - name: Install sshpass and protobuf-compiler
       run: sudo apt-get install -y protobuf-compiler sshpass
 
-    - name: Copy compose.yml to droplet
-      run: sshpass -v -p ${{ secrets.DROPLET_PASSWORD }} scp -o StrictHostKeyChecking=no compose.yml root@${{ vars.DROPLET_IP }}:~
+    - name: Copy files to droplet
+      run: |
+        sshpass -v -p ${{ secrets.DROPLET_PASSWORD }} scp -o StrictHostKeyChecking=no compose.yml root@${{ vars.DROPLET_IP }}:~
+        sshpass -v -p ${{ secrets.DROPLET_PASSWORD }} scp -o StrictHostKeyChecking=no nginx/nginx.prod.conf root@${{ vars.DROPLET_IP }}:~
 
     - name: Deploy
       uses: appleboy/ssh-action@master
@@ -102,7 +107,7 @@ jobs:
           cd ~
           docker compose down
           docker compose pull
-          docker compose up -d
+          docker compose -f compose.yml up -d
 
     - name: Checkout code
       uses: actions/checkout@v2
@@ -113,32 +118,33 @@ jobs:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
 
-    - name: Copy files to droplet
-      run: |
-        sshpass -v -p ${{ secrets.DROPLET_PASSWORD }} scp -o StrictHostKeyChecking=no compose.yml root@${{ vars.DROPLET_IP }}:~
-        sshpass -v -p ${{ secrets.DROPLET_PASSWORD }} scp -o StrictHostKeyChecking=no nginx/nginx.prod.conf root@${{ vars.DROPLET_IP }}:/etc/nginx/nginx.conf
-
-    - name: Deploy
+    - name: Deploy to DigitalOcean
       uses: appleboy/ssh-action@master
       with:
         host: ${{ vars.DROPLET_IP }}
         username: root
         password: ${{ secrets.DROPLET_PASSWORD }}
+        envs: ADMIN_EMAIL
         script: |
+          export ADMIN_EMAIL=${{ secrets.ADMIN_EMAIL }}
+
           cd ~
           docker compose down
+
+          # Create necessary directories
+          mkdir -p certbot/conf letsencrypt
+
+          # Check if certificates already exist
+          if [ ! -d "/etc/letsencrypt/live/${{ vars.DOMAIN_NAME }}" ]; then
+            docker compose run --rm certbot certonly --webroot -w /var/www/certbot --force-renewal -d ${{ vars.DOMAIN_NAME }} --email ${{ secrets.ADMIN_EMAIL }} --agree-tos --no-eff-email
+          fi
+
+          # renew certificates
+          docker compose run --rm certbot renew
+
+          # start services
           docker compose pull
-
-          # Ensure the certbot directories exist
-          mkdir -p certbot/conf certbot/www
-
-          # Replace placeholders in the Nginx config
-          sed -i 's/\$DOMAIN_NAME/${{ vars.DOMAIN_NAME }}/g' nginx/nginx.prod.conf
-
           docker compose up -d
 
-          # Initialize certbot (first time only)
-          docker compose run --rm certbot certonly --webroot -w /var/www/certbot -d ${{ vars.DOMAIN_NAME }} --email ${{ secrets.ADMIN_EMAIL }} --agree-tos --no-eff-email
-
-          # Reload Nginx to apply new certificates
-          docker compose exec nginx nginx -s reload
+          # configure crontab to renew certificates
+          (crontab -l 2>/dev/null; echo "0 12 * * * /usr/bin/docker compose run --rm certbot renew --quiet && /usr/bin/docker compose exec nginx nginx -s reload") | crontab -

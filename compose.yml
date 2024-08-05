@@ -30,27 +30,25 @@ services:
       - app-network
 
   nginx:
-    image: nginx:latest
+    image: nginx:stable
     ports:
       - "80:80"
       - "443:443"
     volumes:
-      - ./nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/conf.d:/etc/nginx/conf.d:ro
-      - ./certbot/conf:/etc/letsencrypt
-      - ./certbot/www:/var/www/certbot
+      - ./nginx.prod.conf:/etc/nginx/nginx.conf:ro
+      - ./certbot/www:/var/www/certbot/:ro
+      - ./certbot/conf:/etc/letsencrypt:ro
+    networks:
+      - app-network
     depends_on:
       - app-service
       - auth-service
-    networks:
-      - app-network
 
   certbot:
-    image: certbot/certbot
+    image: certbot/certbot:latest
     volumes:
-      - ./certbot/conf:/etc/letsencrypt
-      - ./certbot/www:/var/www/certbot
-    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+      - ./certbot/www/:/var/www/certbot/:rw
+      - ./certbot/conf/:/etc/letsencrypt/:rw
 
 networks:
   app-network:
