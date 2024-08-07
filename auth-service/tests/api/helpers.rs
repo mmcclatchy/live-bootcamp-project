@@ -20,8 +20,9 @@ impl RESTTestApp {
     pub async fn new() -> Self {
         let user_store = HashmapUserStore::new();
         let app_state = AppState::new_arc(user_store);
+        let address = String::from("127.0.0.1:3000");
 
-        let rest_app = RESTApp::new(app_state);
+        let rest_app = RESTApp::new(app_state, address);
         let address = rest_app.address.clone();
 
         let (tx, rx) = oneshot::channel();
@@ -82,8 +83,8 @@ impl GRPCTestApp {
         let user_store = HashmapUserStore::new();
         let app_state = Arc::new(AppState::new(user_store));
 
-        // Create GRPCApp instance
-        let grpc_app = GRPCApp::new(app_state);
+        let address = "127.0.0.1:50051".to_string();
+        let grpc_app = GRPCApp::new(app_state, address);
         let address = grpc_app.address;
 
         // Create shutdown channel
@@ -100,8 +101,8 @@ impl GRPCTestApp {
         // Wait for the server to start
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
-        // Create the gRPC client
-        let client = AuthServiceClient::connect("http://0.0.0.0:50051")
+        #[allow(clippy::expect_fun_call)]
+        let client = AuthServiceClient::connect("http://127.0.0.1:50051")
             .await
             .expect("Failed to create gRPC client");
 

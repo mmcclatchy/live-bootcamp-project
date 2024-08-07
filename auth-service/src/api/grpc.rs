@@ -1,4 +1,3 @@
-use std::env;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
@@ -71,11 +70,12 @@ pub struct GRPCApp<T: UserStore + Send + Sync + 'static> {
 }
 
 impl<T: UserStore + Send + Sync + 'static> GRPCApp<T> {
-    pub fn new(app_state: Arc<AppState<T>>) -> Self {
-        let address: SocketAddr = env::var("GRPC_LISTEN_ADDR")
-            .unwrap_or_else(|_| "0.0.0.0:50051".to_string())
-            .parse()
-            .unwrap();
+    pub fn new(app_state: Arc<AppState<T>>, address: String) -> Self {
+        #[allow(clippy::expect_fun_call)]
+        let address = address.parse().expect(&format!(
+            "[GRPCApp][new] Failed to parse address: {}",
+            address
+        ));
         Self { address, app_state }
     }
 

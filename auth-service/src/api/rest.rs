@@ -24,8 +24,10 @@ pub struct RESTApp {
 }
 
 impl RESTApp {
-    pub fn new<T: UserStore + Send + Sync + 'static>(app_state: Arc<AppState<T>>) -> Self {
-        let address = String::from("0.0.0.0:3000");
+    pub fn new<T: UserStore + Send + Sync + 'static>(
+        app_state: Arc<AppState<T>>,
+        address: String,
+    ) -> Self {
         let router = Router::new()
             .layer(TraceLayer::new_for_http())
             .layer(from_fn(log_request))

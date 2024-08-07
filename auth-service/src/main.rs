@@ -25,11 +25,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let user_store = HashmapUserStore::new();
     let app_state = AppState::new_arc(user_store);
 
-    let grpc_app = GRPCApp::new(app_state.clone());
+    let address = "0.0.0.0:50051".to_string();
+    let grpc_app = GRPCApp::new(app_state.clone(), address);
     let grpc_server = grpc_app.run();
 
-    // REST server
-    let rest_app = RESTApp::new(app_state);
+    let address = "0.0.0.0:3000".to_string();
+    let rest_app = RESTApp::new(app_state, address);
     let rest_server = rest_app.run();
 
     // Run both servers concurrently
