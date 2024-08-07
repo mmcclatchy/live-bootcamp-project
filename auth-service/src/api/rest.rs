@@ -70,13 +70,8 @@ impl IntoResponse for AuthAPIError {
             AuthAPIError::InvalidCredentials => {
                 (StatusCode::UNAUTHORIZED, "Invalid credentials".to_string())
             }
-            AuthAPIError::InvalidEmail(msg) => {
-                (StatusCode::BAD_REQUEST, format!("Invalid email: {}", msg))
-            }
-            AuthAPIError::InvalidPassword(msg) => (
-                StatusCode::BAD_REQUEST,
-                format!("Invalid password: {}", msg),
-            ),
+            AuthAPIError::InvalidEmail(msg) => (StatusCode::BAD_REQUEST, msg),
+            AuthAPIError::InvalidPassword(msg) => (StatusCode::BAD_REQUEST, msg),
             AuthAPIError::UserNotFound => (StatusCode::NOT_FOUND, "User not found".to_string()),
             AuthAPIError::UnexpectedError => (
                 StatusCode::INTERNAL_SERVER_ERROR,

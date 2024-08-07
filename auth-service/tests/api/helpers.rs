@@ -4,7 +4,11 @@ use auth_service::{
     GRPCApp, RESTApp,
 };
 use reqwest;
-use std::{net::SocketAddr, sync::Arc};
+use serde::{Deserialize, Serialize};
+use std::{
+    net::{SocketAddr, TcpListener},
+    sync::Arc,
+};
 use tokio::sync::oneshot;
 use tokio::time::{sleep, Duration};
 use tonic::transport::Channel;
@@ -13,6 +17,7 @@ use uuid::Uuid;
 pub struct RESTTestApp {
     pub address: String,
     pub client: reqwest::Client,
+    pub app_state: Arc<AppState<HashmapUserStore>>,
     _shutdown: Option<oneshot::Sender<()>>,
 }
 
@@ -20,9 +25,9 @@ impl RESTTestApp {
     pub async fn new() -> Self {
         let user_store = HashmapUserStore::new();
         let app_state = AppState::new_arc(user_store);
-        let address = String::from("127.0.0.1:3000");
+        let address = String::from("127.0.0.1:3001");
 
-        let rest_app = RESTApp::new(app_state, address);
+        let rest_app = RESTApp::new(app_state.clone(), address);
         let address = rest_app.address.clone();
 
         let (tx, rx) = oneshot::channel();
@@ -42,20 +47,20 @@ impl RESTTestApp {
         RESTTestApp {
             address: format!("http://{}", address),
             client,
+            app_state: app_state.clone(),
             _shutdown: Some(tx),
         }
     }
 
-    pub async fn post_signup<Body>(&self, body: &Body) -> reqwest::Response
-    where
-        Body: serde::Serialize,
-    {
+    pub async fn post_signup<Body: Serialize>(&self, body: &Body) -> reqwest::Response {
+        let client_url = format!("{}/signup", &self.address);
+        println!("[RESTTestApp][post_signup] Client URL: {}", client_url);
         self.client
-            .post(&format!("{}/signup", &self.address))
+            .post(&client_url)
             .json(body)
             .send()
             .await
-            .expect("Failed to execute request.")
+            .expect("[RESTTestApp][post_signup] Failed to execute request.")
     }
 
     pub async fn get_error_message(response: reqwest::Response) -> String {
@@ -69,22 +74,36 @@ impl RESTTestApp {
             .to_string()
     }
 
-    // Add other REST helper methods here (login, logout, verify_2fa, verify_token)...
+    pub async fn log_user_store(&self, fn_name: &str) {
+        let user_store = self.app_state.user_store.read().await;
+        println!("[TEST][{}] {:?}", fn_name, user_store);
+    }
 }
 
 pub struct GRPCTestApp {
     pub address: SocketAddr,
     pub client: AuthServiceClient<Channel>,
+    pub app_state: Arc<AppState<HashmapUserStore>>,
     shutdown: Option<oneshot::Sender<()>>,
 }
 
 impl GRPCTestApp {
     pub async fn new() -> Self {
+        // let listener = TcpListener::bind("127.0.0.1:0").expect("Failed to bind random port");
+        // let port = listener.local_addr().unwrap().port();
+        // let address = format!("127.0.0.1:{}", port);
+        // let address = listener.local_addr().unwrap().to_string();
+
         let user_store = HashmapUserStore::new();
+        let user_store_id = user_store.get_id();
         let app_state = Arc::new(AppState::new(user_store));
 
-        let address = "127.0.0.1:50051".to_string();
-        let grpc_app = GRPCApp::new(app_state, address);
+        let address = "127.0.0.1:50052".to_string();
+        println!(
+            "[GRPCTestApp][new] Bound to address: {} with UserStore id: {}",
+            address, user_store_id
+        );
+        let grpc_app = GRPCApp::new(app_state.clone(), address);
         let address = grpc_app.address;
 
         // Create shutdown channel
@@ -102,15 +121,21 @@ impl GRPCTestApp {
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
         #[allow(clippy::expect_fun_call)]
-        let client = AuthServiceClient::connect("http://127.0.0.1:50051")
+        let client = AuthServiceClient::connect("http://127.0.0.1:50052")
             .await
             .expect("Failed to create gRPC client");
 
         GRPCTestApp {
             address,
             client,
+            app_state: app_state.clone(),
             shutdown: Some(tx),
         }
+    }
+
+    pub async fn log_user_store(&self, fn_name: &str) {
+        let user_store = self.app_state.user_store.read().await;
+        println!("[TEST][{}] {:?}", fn_name, user_store);
     }
 }
 

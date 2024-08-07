@@ -1,6 +1,6 @@
 use std::fmt;
 
-const ERROR_MESSAGE: &str = "Invalid Password: Must be at least 8 characters long, contain at least one uppercase character, and contain at least one symbol";
+const ERROR_MESSAGE: &str = "Invalid Password: Must be at least 8 characters long, contain at least one uppercase character and one number";
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Password(String);
@@ -9,7 +9,7 @@ impl Password {
     pub fn parse(password: String) -> Result<Self, String> {
         if password.len() < 8
             || !password.chars().any(|c| c.is_uppercase())
-            || !password.chars().any(|c| !c.is_alphanumeric())
+            || !password.chars().any(|c| c.is_numeric())
         {
             return Err(ERROR_MESSAGE.to_string());
         }

@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use axum::http::StatusCode;
 use axum::{extract::State, Json};
 use log::info;
 use serde::{Deserialize, Serialize};
@@ -26,7 +27,7 @@ pub struct SignupResponse {
 pub async fn post<T: UserStore>(
     State(state): State<Arc<AppState<T>>>,
     Json(payload): Json<SignupRequest>,
-) -> Result<Json<SignupResponse>, AuthAPIError> {
+) -> Result<(StatusCode, Json<SignupResponse>), AuthAPIError> {
     info!("[REST][POST][/signup] Received request: {:?}", payload);
 
     let email = Email::parse(payload.email).map_err(AuthAPIError::InvalidEmail)?;
@@ -40,7 +41,10 @@ pub async fn post<T: UserStore>(
         _ => AuthAPIError::UnexpectedError,
     })?;
 
-    Ok(Json(SignupResponse {
-        message: "User created successfully".to_string(),
-    }))
+    Ok((
+        StatusCode::CREATED,
+        Json(SignupResponse {
+            message: "User created successfully".to_string(),
+        }),
+    ))
 }

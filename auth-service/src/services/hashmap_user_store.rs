@@ -7,22 +7,30 @@ use crate::domain::{
     user::User,
 };
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct HashmapUserStore {
+    id: String,
     users: HashMap<Email, User>,
 }
 
 impl HashmapUserStore {
     pub fn new() -> Self {
         HashmapUserStore {
+            id: uuid::Uuid::new_v4().to_string(),
             users: HashMap::new(),
         }
+    }
+
+    pub fn get_id(&self) -> String {
+        self.id.clone()
     }
 }
 
 #[async_trait::async_trait]
 impl UserStore for HashmapUserStore {
     async fn add_user(&mut self, user: User) -> Result<(), UserStoreError> {
+        println!("[HashmapUserStore][add_user] {:?}", self);
+        println!("[HashmapUserStore][add_user] {:?}", user);
         let email = user.email.clone();
         match self.users.get(&email) {
             Some(_) => Err(UserStoreError::UserAlreadyExists),
@@ -34,6 +42,8 @@ impl UserStore for HashmapUserStore {
     }
 
     async fn get_user(&self, email: &Email) -> Result<User, UserStoreError> {
+        println!("[HashmapUserStore][get_user] {:?}", self);
+        println!("[HashmapUserStore][get_user] {:?}", email);
         match self.users.get(email) {
             Some(user) => Ok((*user).clone()),
             None => Err(UserStoreError::UserNotFound),
