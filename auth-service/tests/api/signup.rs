@@ -1,4 +1,4 @@
-use crate::helpers::{get_random_email, GRPCTestApp, RESTTestApp};
+use crate::helpers::{get_random_email, wait_for_user, GRPCTestApp, RESTTestApp};
 use auth_proto::SignupRequest;
 use auth_service::domain::data_stores::UserStore;
 use auth_service::{
@@ -49,6 +49,7 @@ async fn rest_signup_should_return_201_if_valid_input() {
         "requires2FA": true,
     });
     let response = app.post_signup(&signup_request).await;
+    // tokio::time::sleep(tokio::time::Duration::from_millis(1000)).await;
 
     assert_eq!(
         response.status().as_u16(),
@@ -58,7 +59,6 @@ async fn rest_signup_should_return_201_if_valid_input() {
         response.text().await.unwrap_or_default()
     );
 
-    // Check if the user was actually created
     let app_state = &app.app_state;
     let user_store = app_state.user_store.read().await;
     let email = Email::parse(random_email).unwrap();
@@ -209,8 +209,10 @@ async fn grpc_signup_works_for_valid_credentials() {
         requires_2fa: false,
     });
 
+    tokio::time::sleep(tokio::time::Duration::from_millis(1000)).await;
+
     let response = app.client.signup(request).await.expect(
-        "[signup][tests][grpc_signup_works_for_valid_credentials] Failed to send signup request",
+        "[ERROR][signup][tests][grpc_signup_works_for_valid_credentials] Failed to send signup request",
     );
     println!(
         "[signup][tests][grpc_signup_works_for_valid_credentials] {:?}",
@@ -229,10 +231,14 @@ async fn grpc_signup_works_for_valid_credentials() {
         user_email
     );
 
-    let user = user_store
-        .get_user(&user_email)
+    let user = wait_for_user(user_store, &user_email, 5, 100)
         .await
-        .expect("User not found");
+        .expect("[ERROR][signup][tests][grpc_signup_works_for_valid_credentials] User not found");
+
+    // let user = user_store
+    //     .get_user(&user_email)
+    //     .await
+    //     .expect("[ERROR][signup][tests][grpc_signup_works_for_valid_credentials] User not found");
     println!(
         "[signup][tests][grpc_signup_works_for_valid_credentials] {:?}",
         user

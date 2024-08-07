@@ -1,5 +1,10 @@
 use auth_proto::auth_service_client::AuthServiceClient;
 use auth_service::{
+    domain::{
+        data_stores::{UserStore, UserStoreError},
+        email::Email,
+        user::User,
+    },
     services::{app_state::AppState, hashmap_user_store::HashmapUserStore},
     GRPCApp, RESTApp,
 };
@@ -9,7 +14,7 @@ use std::{
     net::{SocketAddr, TcpListener},
     sync::Arc,
 };
-use tokio::sync::oneshot;
+use tokio::sync::{oneshot, RwLockReadGuard};
 use tokio::time::{sleep, Duration};
 use tonic::transport::Channel;
 use uuid::Uuid;
@@ -18,7 +23,7 @@ pub struct RESTTestApp {
     pub address: String,
     pub client: reqwest::Client,
     pub app_state: Arc<AppState<HashmapUserStore>>,
-    _shutdown: Option<oneshot::Sender<()>>,
+    // _shutdown: Option<oneshot::Sender<()>>,
 }
 
 impl RESTTestApp {
@@ -30,14 +35,15 @@ impl RESTTestApp {
         let rest_app = RESTApp::new(app_state.clone(), address);
         let address = rest_app.address.clone();
 
-        let (tx, rx) = oneshot::channel();
+        // let (tx, rx) = oneshot::channel();
+        // tokio::spawn(async move {
+        //     tokio::select! {
+        //         _ = rest_app.run() => {},
+        //         _ = rx => {},
+        //     }
+        // });
 
-        tokio::spawn(async move {
-            tokio::select! {
-                _ = rest_app.run() => {},
-                _ = rx => {},
-            }
-        });
+        tokio::spawn(rest_app.run());
 
         // Wait for server to start
         sleep(Duration::from_millis(100)).await;
@@ -48,7 +54,7 @@ impl RESTTestApp {
             address: format!("http://{}", address),
             client,
             app_state: app_state.clone(),
-            _shutdown: Some(tx),
+            // _shutdown: Some(tx),
         }
     }
 
@@ -84,7 +90,7 @@ pub struct GRPCTestApp {
     pub address: SocketAddr,
     pub client: AuthServiceClient<Channel>,
     pub app_state: Arc<AppState<HashmapUserStore>>,
-    shutdown: Option<oneshot::Sender<()>>,
+    // shutdown: Option<oneshot::Sender<()>>,
 }
 
 impl GRPCTestApp {
@@ -106,16 +112,15 @@ impl GRPCTestApp {
         let grpc_app = GRPCApp::new(app_state.clone(), address);
         let address = grpc_app.address;
 
-        // Create shutdown channel
-        let (tx, rx) = oneshot::channel();
+        // let (tx, rx) = oneshot::channel();
+        // tokio::spawn(async move {
+        //     tokio::select! {
+        //         _ = grpc_app.run() => {},
+        //         _ = rx => {},
+        //     }
+        // });
 
-        // Spawn the gRPC server
-        tokio::spawn(async move {
-            tokio::select! {
-                _ = grpc_app.run() => {},
-                _ = rx => {},
-            }
-        });
+        tokio::spawn(grpc_app.run());
 
         // Wait for the server to start
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
@@ -129,7 +134,7 @@ impl GRPCTestApp {
             address,
             client,
             app_state: app_state.clone(),
-            shutdown: Some(tx),
+            // shutdown: Some(tx),
         }
     }
 
@@ -139,14 +144,32 @@ impl GRPCTestApp {
     }
 }
 
-impl Drop for GRPCTestApp {
-    fn drop(&mut self) {
-        if let Some(tx) = self.shutdown.take() {
-            let _ = tx.send(());
-        }
-    }
-}
+// impl Drop for GRPCTestApp {
+//     fn drop(&mut self) {
+//         if let Some(tx) = self.shutdown.take() {
+//             let _ = tx.send(());
+//         }
+//     }
+// }
 
 pub fn get_random_email() -> String {
     format!("{}@example.com", Uuid::new_v4())
+}
+
+pub async fn wait_for_user<'a, T: UserStore>(
+    user_store: RwLockReadGuard<'a, T>,
+    email: &Email,
+    max_retries: u8,
+    delay_ms: u64,
+) -> Result<User, UserStoreError> {
+    for _ in 0..max_retries {
+        match user_store.get_user(email).await {
+            Ok(user) => return Ok(user),
+            Err(UserStoreError::UserNotFound) => {
+                sleep(Duration::from_millis(delay_ms)).await;
+            }
+            Err(e) => return Err(e),
+        }
+    }
+    Err(UserStoreError::UserNotFound)
 }

@@ -79,7 +79,7 @@ impl<T: UserStore + Send + Sync + 'static> GRPCApp<T> {
         Self { address, app_state }
     }
 
-    pub async fn run(self) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn run(self) -> Result<(), tonic::transport::Error> {
         info!("gRPC server listening on {}", self.address);
 
         let auth_service = GRPCAuthService::new(self.app_state);
@@ -89,6 +89,5 @@ impl<T: UserStore + Send + Sync + 'static> GRPCApp<T> {
             .add_service(grpc_service)
             .serve(self.address)
             .await
-            .map_err(|e| e.into())
     }
 }

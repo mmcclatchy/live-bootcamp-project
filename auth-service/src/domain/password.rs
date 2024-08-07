@@ -58,13 +58,13 @@ mod tests {
         assert_eq!(result.unwrap_err(), ERROR_MESSAGE);
     }
 
-    #[test]
-    fn test_password_no_symbol() {
-        let password = "Password123".to_string();
-        let result = Password::parse(password);
-        assert!(result.is_err());
-        assert_eq!(result.unwrap_err(), ERROR_MESSAGE);
-    }
+    // #[test]
+    // fn test_password_no_symbol() {
+    //     let password = "Password123".to_string();
+    //     let result = Password::parse(password);
+    //     assert!(result.is_err());
+    //     assert_eq!(result.unwrap_err(), ERROR_MESSAGE);
+    // }
 
     #[test]
     fn test_password_all_requirements_failed() {

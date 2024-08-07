@@ -18,6 +18,10 @@ async fn log_request(req: Request<Body>, next: Next) -> impl IntoResponse {
     next.run(req).await
 }
 
+async fn health_check() -> impl IntoResponse {
+    StatusCode::OK
+}
+
 pub struct RESTApp {
     pub address: String,
     pub router: Router,
@@ -32,6 +36,7 @@ impl RESTApp {
             .layer(TraceLayer::new_for_http())
             .layer(from_fn(log_request))
             .nest_service("/", ServeDir::new("assets"))
+            .route("/health", post(health_check))
             .route("/signup", post(routes::signup::post))
             .route("/login", post(routes::login::post))
             .route("/logout", post(routes::logout::post))
