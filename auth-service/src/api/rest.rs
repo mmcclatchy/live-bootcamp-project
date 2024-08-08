@@ -1,3 +1,4 @@
+use std::error::Error;
 use std::io::Write;
 use std::sync::Arc;
 
@@ -8,6 +9,7 @@ use axum::body::Body;
 use axum::extract::Request;
 use axum::middleware::{from_fn, Next};
 use axum::response::Response;
+use axum::serve::Serve;
 use axum::{http::StatusCode, response::IntoResponse, routing::post, Json, Router};
 use log::info;
 use serde::{Deserialize, Serialize};
@@ -24,14 +26,14 @@ async fn health_check() -> impl IntoResponse {
 
 pub struct RESTApp {
     pub address: String,
-    pub router: Router,
+    pub server: Serve<Router, Router>,
 }
 
 impl RESTApp {
-    pub fn new<T: UserStore + Send + Sync + 'static>(
+    pub async fn new<T: UserStore + Send + Sync + 'static>(
         app_state: Arc<AppState<T>>,
         address: String,
-    ) -> Self {
+    ) -> Result<Self, Box<dyn Error>> {
         let router = Router::new()
             .layer(TraceLayer::new_for_http())
             .layer(from_fn(log_request))
@@ -44,7 +46,9 @@ impl RESTApp {
             .route("/verify-token", post(routes::verify_token::post))
             .with_state(app_state);
 
-        Self { address, router }
+        let listener = tokio::net::TcpListener::bind(&address).await?;
+        let address = listener.local_addr()?.to_string();
+        Ok(Self { address, server: axum::serve(listener, router)})
     }
 
     pub async fn run(self) -> Result<(), std::io::Error> {
@@ -52,12 +56,11 @@ impl RESTApp {
         std::io::stderr().flush().unwrap();
 
         info!("REST server listening on {}", self.address);
-        let listener = tokio::net::TcpListener::bind(&self.address).await?;
 
         eprintln!("Listener bound successfully");
         std::io::stderr().flush().unwrap();
 
-        axum::serve(listener, self.router).await
+        self.server.await
     }
 }
 

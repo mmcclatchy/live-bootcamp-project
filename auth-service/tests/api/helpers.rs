@@ -30,9 +30,9 @@ impl RESTTestApp {
     pub async fn new() -> Self {
         let user_store = HashmapUserStore::new();
         let app_state = AppState::new_arc(user_store);
-        let address = String::from("127.0.0.1:3001");
+        let address = String::from("127.0.0.1:0");
 
-        let rest_app = RESTApp::new(app_state.clone(), address);
+        let rest_app = RESTApp::new(app_state.clone(), address).await.expect("should create rest app");
         let address = rest_app.address.clone();
 
         // let (tx, rx) = oneshot::channel();
@@ -104,7 +104,7 @@ impl GRPCTestApp {
         let user_store_id = user_store.get_id();
         let app_state = Arc::new(AppState::new(user_store));
 
-        let address = "127.0.0.1:50052".to_string();
+        let address = "127.0.0.1:0".to_string();
         println!(
             "[GRPCTestApp][new] Bound to address: {} with UserStore id: {}",
             address, user_store_id
