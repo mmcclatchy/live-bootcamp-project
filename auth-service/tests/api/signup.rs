@@ -3,11 +3,8 @@ use auth_proto::SignupRequest;
 use auth_service::domain::data_stores::UserStore;
 use auth_service::{
     api::rest::ErrorResponse,
-    domain::{email::Email, password::Password, user},
+    domain::{email::Email, password::Password},
 };
-use axum::extract::State;
-use quickcheck::single_shrinker;
-use serde_json::json;
 use tonic::Request;
 
 const VALID_PASSWORD: &str = "P@ssw0rd123";
@@ -234,11 +231,6 @@ async fn grpc_signup_works_for_valid_credentials() {
     let user = wait_for_user(user_store, &user_email, 5, 100)
         .await
         .expect("[ERROR][signup][tests][grpc_signup_works_for_valid_credentials] User not found");
-
-    // let user = user_store
-    //     .get_user(&user_email)
-    //     .await
-    //     .expect("[ERROR][signup][tests][grpc_signup_works_for_valid_credentials] User not found");
     println!(
         "[signup][tests][grpc_signup_works_for_valid_credentials] {:?}",
         user

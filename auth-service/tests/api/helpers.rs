@@ -9,11 +9,8 @@ use auth_service::{
     GRPCApp, RESTApp,
 };
 use reqwest;
-use serde::{Deserialize, Serialize};
-use std::{
-    net::{SocketAddr, TcpListener},
-    sync::Arc,
-};
+use serde::Serialize;
+use std::sync::Arc;
 use tokio::sync::RwLockReadGuard;
 use tokio::time::{sleep, Duration};
 use tonic::transport::Channel;
@@ -65,17 +62,6 @@ impl RESTTestApp {
             .expect("[RESTTestApp][post_signup] Failed to execute request.")
     }
 
-    pub async fn get_error_message(response: reqwest::Response) -> String {
-        response
-            .json::<serde_json::Value>()
-            .await
-            .expect("Failed to parse error response")
-            .get("error")
-            .and_then(|v| v.as_str())
-            .unwrap_or("Unknown error")
-            .to_string()
-    }
-
     pub async fn log_user_store(&self, fn_name: &str) {
         let user_store = self.app_state.user_store.read().await;
         println!("[TEST][{}] {:?}", fn_name, user_store);
@@ -94,7 +80,6 @@ impl GRPCTestApp {
         let user_store_id = user_store.get_id();
         let app_state = Arc::new(AppState::new(user_store));
         let address = String::from("127.0.0.1:0");
-        // let address = String::from("127.0.0.1:50052");
 
         let grpc_app = GRPCApp::new(app_state.clone(), address.clone())
             .await
