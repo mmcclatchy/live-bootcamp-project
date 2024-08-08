@@ -1,5 +1,5 @@
-use std::net::SocketAddr;
 use std::sync::Arc;
+use std::{error::Error, net::SocketAddr};
 
 use log::info;
 use tonic::{Request, Response, Status};
@@ -66,27 +66,28 @@ impl<T: UserStore + Send + Sync + 'static> AuthService for GRPCAuthService<T> {
 
 pub struct GRPCApp<T: UserStore + Send + Sync + 'static> {
     pub address: SocketAddr,
-    app_state: Arc<AppState<T>>,
+    server: AuthServiceServer<GRPCAuthService<T>>,
 }
 
 impl<T: UserStore + Send + Sync + 'static> GRPCApp<T> {
-    pub fn new(app_state: Arc<AppState<T>>, address: String) -> Self {
+    pub async fn new(app_state: Arc<AppState<T>>, address: String) -> Result<Self, Box<dyn Error>> {
+        let listener = tokio::net::TcpListener::bind(&address).await?;
+        let address = listener.local_addr()?.to_string();
         #[allow(clippy::expect_fun_call)]
         let address = address.parse().expect(&format!(
-            "[GRPCApp][new] Failed to parse address: {}",
-            address
+            "[GRPCApp][new] Failed to parse address: {address}"
         ));
-        Self { address, app_state }
+        let auth_service = GRPCAuthService::new(app_state);
+        let server = AuthServiceServer::new(auth_service);
+
+        Ok(Self { address, server })
     }
 
     pub async fn run(self) -> Result<(), tonic::transport::Error> {
         info!("gRPC server listening on {}", self.address);
 
-        let auth_service = GRPCAuthService::new(self.app_state);
-        let grpc_service = AuthServiceServer::new(auth_service);
-
         tonic::transport::Server::builder()
-            .add_service(grpc_service)
+            .add_service(self.server)
             .serve(self.address)
             .await
     }

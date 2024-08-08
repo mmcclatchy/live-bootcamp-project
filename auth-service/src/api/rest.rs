@@ -48,7 +48,10 @@ impl RESTApp {
 
         let listener = tokio::net::TcpListener::bind(&address).await?;
         let address = listener.local_addr()?.to_string();
-        Ok(Self { address, server: axum::serve(listener, router)})
+        Ok(Self {
+            address,
+            server: axum::serve(listener, router),
+        })
     }
 
     pub async fn run(self) -> Result<(), std::io::Error> {

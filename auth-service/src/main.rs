@@ -26,11 +26,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app_state = AppState::new_arc(user_store);
 
     let address = "0.0.0.0:50051".to_string();
-    let grpc_app = GRPCApp::new(app_state.clone(), address);
+    let grpc_app = GRPCApp::new(app_state.clone(), address)
+        .await
+        .expect("[ERROR][main] Failed to create GRPCApp");
     let grpc_server = grpc_app.run();
 
     let address = "0.0.0.0:3000".to_string();
-    let rest_app = RESTApp::new(app_state, address).await.expect("should create rest server");
+    let rest_app = RESTApp::new(app_state, address)
+        .await
+        .expect("[ERROR][main] Failed to create REST server");
     let rest_server = rest_app.run();
 
     // Run both servers concurrently
