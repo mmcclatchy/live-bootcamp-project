@@ -1,26 +1,21 @@
 use std::sync::Arc;
 
 use auth_service::{
-    domain::{
-        data_stores::UserStore,
-        email::Email,
-        password::{self, Password},
-        user::User,
-    },
-    routes::login::LoginRequest,
+    domain::{data_stores::UserStore, email::Email, password::Password, user::User},
     services::app_state::AppState,
+    utils::constants::JWT_COOKIE_NAME,
 };
 use serde_json::{json, Value};
 
-use crate::helpers::RESTTestApp;
+use crate::helpers::{get_random_email, RESTTestApp};
 
 const USER_EMAIL: &str = "test@email.com";
 const USER_PASSWORD: &str = "P@assw0rd";
 
-fn create_valid_login_request() -> Value {
+fn create_login_body(email: &str, password: &str) -> Value {
     json!({
-        "email": USER_EMAIL.to_string(),
-        "password": USER_PASSWORD.to_string(),
+        "email": email,
+        "password": password,
     })
 }
 
@@ -32,26 +27,19 @@ fn create_valid_login_request() -> Value {
 //     })
 // }
 
-fn get_user_email() -> Email {
-    Email::parse(USER_EMAIL.to_string()).unwrap()
-}
-
-fn get_user_password() -> Password {
-    Password::parse(USER_PASSWORD.to_string()).unwrap()
-}
-
-fn create_user() -> User {
-    let email = get_user_email();
-    let password = get_user_password();
+fn create_user(email: &str, password: &str, requires_2fa: bool) -> User {
+    let email = Email::parse(email.to_string()).unwrap();
+    let password = Password::parse(password.to_string()).unwrap();
     User {
         email,
         password,
-        requires_2fa: false,
+        requires_2fa,
     }
 }
 
 async fn create_existing_user<T: UserStore>(app_state: Arc<AppState<T>>) -> User {
-    let user = create_user();
+    let random_email = get_random_email();
+    let user = create_user(&random_email, USER_PASSWORD, false);
     let mut user_store = app_state.user_store.write().await;
     user_store.add_user(user.clone()).await.unwrap();
     user
@@ -79,13 +67,13 @@ async fn rest_post_login_should_return_422_if_malformed_credentials() {
 async fn rest_post_login_should_return_400_if_invalid_input() {
     let app = RESTTestApp::new().await;
     let test_cases = [
-        json!({ "email": "test@example.com", "password": "" }),
-        json!({ "email": "test@example.com", "password": "password" }),
-        json!({ "email": "test@example.com", "password": "Password" }),
-        json!({ "email": "test@example.com", "password": "passw0rd" }),
-        json!({ "email": "test_example.com", "password": "P@ssword123" }),
-        json!({ "email": "test@example_com", "password": "P@ssword123" }),
-        json!({ "email": "", "password": "P@ssword123" }),
+        create_login_body("test@example.com", ""),
+        create_login_body("test@example.com", "password"),
+        create_login_body("test@example.com", "Password"),
+        create_login_body("test@example.com", "passw0rd"),
+        create_login_body("test_example.com", "P@ssword123"),
+        create_login_body("test@example_com", "P@ssword123"),
+        create_login_body("", "P@ssword123"),
     ];
     for test_case in test_cases.iter() {
         let response = app.post_login(&test_case).await;
@@ -102,13 +90,27 @@ async fn rest_post_login_should_return_400_if_invalid_input() {
 async fn rest_post_login_should_return_401_if_incorrect_credentials() {
     let app = RESTTestApp::new().await;
     let user = create_existing_user(app.app_state.clone()).await;
-    let login_request =
+    let login_body =
         json!({ "email": user.email.to_string(),  "password": "Inv@lid_passw0rd".to_string() });
-    let login_response = app.post_login(&login_request).await;
+    let login_response = app.post_login(&login_body).await;
     assert_eq!(
         login_response.status(),
         401,
         "[ERROR][TEST][rest_post_login_should_return_401_if_incorrect_credentials] Failed for input {:?}",
-        login_request
+        login_body
     )
+}
+
+#[tokio::test]
+async fn rest_post_login_should_return_200_if_valid_credentials_and_2fs_disabled() {
+    let app = RESTTestApp::new().await;
+    let user = create_existing_user(app.app_state.clone()).await;
+    let login_body = create_login_body(&user.email.to_string(), &user.password.to_string());
+    let login_response = app.post_login(&login_body).await;
+    assert_eq!(login_response.status(), 200);
+    let auth_cookie = login_response
+        .cookies()
+        .find(|cookie| cookie.name() == JWT_COOKIE_NAME)
+        .expect("No auth cookie found");
+    assert!(!auth_cookie.value().is_empty());
 }
