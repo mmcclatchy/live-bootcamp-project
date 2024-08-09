@@ -9,8 +9,11 @@ services:
       AUTH_SERVICE_URL: https://rust-bc.markmcclatchy.com/auth
       REST_AUTH_SERVICE_HOST: auth-service:3000
       GRPC_AUTH_SERVICE_HOST: auth-service:50051
-    expose:
-      - "8000"
+    ports:
+      - "8000:8000"
+    depends_on:
+      auth-service:
+          condition: service_started
     networks:
       - app-network
 
@@ -20,12 +23,13 @@ services:
       context: ./auth-service
       dockerfile: Dockerfile
     restart: always
-    expose:
-      - "3000"
-      - "50051"
+    ports:
+      - "3000:3000"
+      - "50051:50051"
     environment:
       - RUST_LOG=info
       - RUST_BACKTRACE=1
+      - JWT_SECRET=${JWT_SECRET}
     networks:
       - app-network
 

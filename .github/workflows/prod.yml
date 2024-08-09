@@ -49,6 +49,7 @@ jobs:
     - name: Build and test auth-service code
       working-directory: ./auth-service
       run: |
+        export JWT_SECRET=secret
         cargo build --verbose
         cargo test --verbose
 
@@ -105,6 +106,8 @@ jobs:
 
         script: |
           cd ~
+          echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" > .env
+          export JWT_SECRET="${{ secrets.JWT_SECRET }}"
           docker compose down
           docker compose pull
           docker compose -f compose.yml up -d
