@@ -4,7 +4,7 @@ use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::{extract::State, Json};
 use log::info;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 use crate::domain::{
     data_stores::UserStore, email::Email, error::AuthAPIError, password::Password,
@@ -13,13 +13,8 @@ use crate::services::app_state::AppState;
 
 #[derive(Deserialize, Debug)]
 pub struct LoginRequest {
-    email: String,
-    password: String,
-}
-
-#[derive(Serialize)]
-pub struct SignupResponse {
-    message: String,
+    pub email: String,
+    pub password: String,
 }
 
 pub async fn post<T: UserStore>(
