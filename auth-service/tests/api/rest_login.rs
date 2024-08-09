@@ -9,23 +9,12 @@ use serde_json::{json, Value};
 
 use crate::helpers::{get_random_email, RESTTestApp};
 
-const USER_EMAIL: &str = "test@email.com";
-const USER_PASSWORD: &str = "P@assw0rd";
-
 fn create_login_body(email: &str, password: &str) -> Value {
     json!({
         "email": email,
         "password": password,
     })
 }
-
-// fn create_valid_signup_request() -> Value {
-//     json!({
-//         "email": USER_EMAIL.to_string(),
-//         "password": USER_PASSWORD.to_string(),
-//         "requires2FA": false,
-//     })
-// }
 
 fn create_user(email: &str, password: &str, requires_2fa: bool) -> User {
     let email = Email::parse(email.to_string()).unwrap();
@@ -39,14 +28,14 @@ fn create_user(email: &str, password: &str, requires_2fa: bool) -> User {
 
 async fn create_existing_user<T: UserStore>(app_state: Arc<AppState<T>>) -> User {
     let random_email = get_random_email();
-    let user = create_user(&random_email, USER_PASSWORD, false);
+    let user = create_user(&random_email, "P@assw0rd", false);
     let mut user_store = app_state.user_store.write().await;
     user_store.add_user(user.clone()).await.unwrap();
     user
 }
 
 #[tokio::test]
-async fn rest_post_login_should_return_422_if_malformed_credentials() {
+async fn should_return_422_if_malformed_credentials() {
     let app = RESTTestApp::new().await;
     let test_cases = [
         json!({ "email": "test@example.com" }),
@@ -57,14 +46,14 @@ async fn rest_post_login_should_return_422_if_malformed_credentials() {
         assert_eq!(
             response.status(),
             422,
-            "[TEST][ERROR][rest_post_login_should_return_422_if_malformed_credentials] Failed for input {:?}",
+            "[TEST][ERROR][should_return_422_if_malformed_credentials] Failed for input {:?}",
             test_case
         )
     }
 }
 
 #[tokio::test]
-async fn rest_post_login_should_return_400_if_invalid_input() {
+async fn should_return_400_if_invalid_input() {
     let app = RESTTestApp::new().await;
     let test_cases = [
         create_login_body("test@example.com", ""),
@@ -80,14 +69,14 @@ async fn rest_post_login_should_return_400_if_invalid_input() {
         assert_eq!(
             response.status(),
             400,
-            "[TEST][ERROR][rest_post_login_should_return_400_if_invalid_input] Failed for input {:?}",
+            "[TEST][ERROR][should_return_400_if_invalid_input] Failed for input {:?}",
             test_case
         )
     }
 }
 
 #[tokio::test]
-async fn rest_post_login_should_return_401_if_incorrect_credentials() {
+async fn should_return_401_if_incorrect_credentials() {
     let app = RESTTestApp::new().await;
     let user = create_existing_user(app.app_state.clone()).await;
     let login_body =
@@ -96,13 +85,13 @@ async fn rest_post_login_should_return_401_if_incorrect_credentials() {
     assert_eq!(
         login_response.status(),
         401,
-        "[ERROR][TEST][rest_post_login_should_return_401_if_incorrect_credentials] Failed for input {:?}",
+        "[ERROR][TEST][should_return_401_if_incorrect_credentials] Failed for input {:?}",
         login_body
     )
 }
 
 #[tokio::test]
-async fn rest_post_login_should_return_200_if_valid_credentials_and_2fs_disabled() {
+async fn should_return_200_if_valid_credentials_and_2fs_disabled() {
     let app = RESTTestApp::new().await;
     let user = create_existing_user(app.app_state.clone()).await;
     let login_body = create_login_body(&user.email.to_string(), &user.password.to_string());
@@ -111,6 +100,6 @@ async fn rest_post_login_should_return_200_if_valid_credentials_and_2fs_disabled
     let auth_cookie = login_response
         .cookies()
         .find(|cookie| cookie.name() == JWT_COOKIE_NAME)
-        .expect("No auth cookie found");
+        .expect("[ERROR][TEST][should_return_200_if_valid_credentials_and_2fs_disabled] No auth cookie found");
     assert!(!auth_cookie.value().is_empty());
 }
