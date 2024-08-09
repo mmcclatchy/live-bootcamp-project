@@ -5,10 +5,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::domain::email::Email;
 
-use super::constants::JWT_COOKIE_NAME;
+use super::constants::{JWT_COOKIE_NAME, JWT_SECRET};
 
 pub const TOKEN_TTL_SECONDS: i64 = 600;
-const JWT_SECRET: &str = "secret";
 
 #[derive(Debug)]
 pub enum GenerateTokenError {
