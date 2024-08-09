@@ -62,6 +62,15 @@ impl RESTTestApp {
             .expect("[RESTTestApp][post_signup] Failed to execute request.")
     }
 
+    pub async fn post_login<Body: Serialize>(&self, body: &Body) -> reqwest::Response {
+        self.client
+            .post(&format!("{}/login", &self.address))
+            .json(body)
+            .send()
+            .await
+            .expect("[ERROR][RESTTestApp][post_signup] Failed to execute request.")
+    }
+
     pub async fn log_user_store(&self, fn_name: &str) {
         let user_store = self.app_state.user_store.read().await;
         println!("[TEST][{}] {:?}", fn_name, user_store);
@@ -91,7 +100,7 @@ impl GRPCTestApp {
 
         tokio::spawn(grpc_app.run());
 
-        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+        sleep(Duration::from_millis(100)).await;
 
         let address = format!("http://{address}");
         let client = AuthServiceClient::connect(address.clone())
