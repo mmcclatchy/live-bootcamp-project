@@ -6,9 +6,13 @@ use auth_service::{
         user::User,
     },
     services::{app_state::AppState, hashmap_user_store::HashmapUserStore},
+    utils::constants::JWT_COOKIE_NAME,
     GRPCApp, RESTApp,
 };
-use reqwest;
+use axum::http::HeaderValue;
+use axum_extra::extract::{cookie::Cookie, CookieJar};
+use hyper::{header, HeaderMap};
+use reqwest::{self, cookie::Jar};
 use serde::Serialize;
 use std::sync::Arc;
 use tokio::sync::RwLockReadGuard;
@@ -18,6 +22,7 @@ use uuid::Uuid;
 
 pub struct RESTTestApp {
     pub address: String,
+    pub cookie_jar: Arc<Jar>,
     pub client: reqwest::Client,
     pub app_state: Arc<AppState<HashmapUserStore>>,
 }
@@ -42,10 +47,15 @@ impl RESTTestApp {
 
         sleep(Duration::from_millis(100)).await;
 
-        let client = reqwest::Client::new();
+        let cookie_jar = Arc::new(Jar::default());
+        let client = reqwest::Client::builder()
+            .cookie_provider(cookie_jar.clone())
+            .build()
+            .unwrap();
 
         RESTTestApp {
             address: format!("http://{}", address),
+            cookie_jar,
             client,
             app_state: app_state.clone(),
         }
@@ -69,6 +79,14 @@ impl RESTTestApp {
             .send()
             .await
             .expect("[ERROR][RESTTestApp][post_signup] Failed to execute request.")
+    }
+
+    pub async fn post_logout(&self) -> reqwest::Response {
+        self.client
+            .post(&format!("{}/login", &self.address))
+            .send()
+            .await
+            .expect("[ERROR][RESTTestApp][post_logout] Failed to execute request.")
     }
 
     pub async fn log_user_store(&self, fn_name: &str) {
