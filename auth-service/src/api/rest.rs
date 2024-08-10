@@ -2,18 +2,24 @@ use std::error::Error;
 use std::io::Write;
 use std::sync::Arc;
 
+use axum::{
+    body::Body,
+    extract::Request,
+    http::StatusCode,
+    middleware::{from_fn, Next},
+    response::{IntoResponse, Response},
+    routing::post,
+    serve::Serve,
+    Json, Router,
+};
+use hyper::Method;
+use log::info;
+use serde::{Deserialize, Serialize};
+use tower_http::{cors::CorsLayer, services::ServeDir, trace::TraceLayer};
+
 use crate::domain::{data_stores::UserStore, error::AuthAPIError};
 use crate::routes;
 use crate::services::app_state::AppState;
-use axum::body::Body;
-use axum::extract::Request;
-use axum::middleware::{from_fn, Next};
-use axum::response::Response;
-use axum::serve::Serve;
-use axum::{http::StatusCode, response::IntoResponse, routing::post, Json, Router};
-use log::info;
-use serde::{Deserialize, Serialize};
-use tower_http::{services::ServeDir, trace::TraceLayer};
 
 async fn log_request(req: Request<Body>, next: Next) -> impl IntoResponse {
     info!("Received request: {} {}", req.method(), req.uri());
@@ -34,6 +40,16 @@ impl RESTApp {
         app_state: Arc<AppState<T>>,
         address: String,
     ) -> Result<Self, Box<dyn Error>> {
+        let allowed_origins = [
+            "http://localhost/app".parse()?,
+            "https://rust-bc.markmcclatchy.com/app".parse()?,
+        ];
+
+        let cors = CorsLayer::new()
+            .allow_methods([Method::GET, Method::POST])
+            .allow_credentials(true)
+            .allow_origin(allowed_origins);
+
         let router = Router::new()
             .layer(TraceLayer::new_for_http())
             .layer(from_fn(log_request))
@@ -44,7 +60,8 @@ impl RESTApp {
             .route("/logout", post(routes::logout::post))
             .route("/verify-2fa", post(routes::verify_2fa::post))
             .route("/verify-token", post(routes::verify_token::post))
-            .with_state(app_state);
+            .with_state(app_state)
+            .layer(cors);
 
         let listener = tokio::net::TcpListener::bind(&address).await?;
         let address = listener.local_addr()?.to_string();
