@@ -6,12 +6,8 @@ use auth_service::{
         user::User,
     },
     services::{app_state::AppState, hashmap_user_store::HashmapUserStore},
-    utils::constants::JWT_COOKIE_NAME,
     GRPCApp, RESTApp,
 };
-use axum::http::HeaderValue;
-use axum_extra::extract::{cookie::Cookie, CookieJar};
-use hyper::{header, HeaderMap};
 use reqwest::{self, cookie::Jar};
 use serde::Serialize;
 use std::sync::Arc;
@@ -54,7 +50,7 @@ impl RESTTestApp {
             .unwrap();
 
         RESTTestApp {
-            address: format!("http://{}", address),
+            address: format!("http://{address}"),
             cookie_jar,
             client,
             app_state: app_state.clone(),
@@ -73,17 +69,21 @@ impl RESTTestApp {
     }
 
     pub async fn post_login<Body: Serialize>(&self, body: &Body) -> reqwest::Response {
+        let client_url = format!("{}/login", &self.address);
+        println!("[RESTTestApp][post_login] Client URL: {client_url}");
         self.client
-            .post(&format!("{}/login", &self.address))
+            .post(client_url)
             .json(body)
             .send()
             .await
-            .expect("[ERROR][RESTTestApp][post_signup] Failed to execute request.")
+            .expect("[ERROR][RESTTestApp][post_login] Failed to execute request.")
     }
 
     pub async fn post_logout(&self) -> reqwest::Response {
+        let client_url = format!("{}/logout", &self.address);
+        println!("[RESTTestApp][post_logout] Client URL: {client_url}");
         self.client
-            .post(&format!("{}/login", &self.address))
+            .post(client_url)
             .send()
             .await
             .expect("[ERROR][RESTTestApp][post_logout] Failed to execute request.")

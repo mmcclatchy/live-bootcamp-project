@@ -88,6 +88,12 @@ impl IntoResponse for AuthAPIError {
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "An unexpected error occurred".to_string(),
             ),
+            AuthAPIError::MissingToken => {
+                (StatusCode::BAD_REQUEST, "Missing auth token".to_string())
+            }
+            AuthAPIError::InvalidToken => {
+                (StatusCode::UNAUTHORIZED, "Invalid auth token".to_string())
+            }
         };
 
         let body = Json(ErrorResponse {

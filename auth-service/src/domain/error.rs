@@ -1,5 +1,7 @@
 use std::fmt;
 
+use tonic;
+
 #[derive(Debug)]
 pub enum AuthAPIError {
     UserAlreadyExists,
@@ -8,6 +10,8 @@ pub enum AuthAPIError {
     InvalidPassword(String),
     UserNotFound,
     UnexpectedError,
+    MissingToken,
+    InvalidToken,
 }
 
 impl fmt::Display for AuthAPIError {
@@ -19,6 +23,8 @@ impl fmt::Display for AuthAPIError {
             AuthAPIError::InvalidPassword(msg) => write!(f, "Invalid password: {}", msg),
             AuthAPIError::UserNotFound => write!(f, "User not found"),
             AuthAPIError::UnexpectedError => write!(f, "Unexpected error occurred"),
+            AuthAPIError::MissingToken => write!(f, "Missing auth token"),
+            AuthAPIError::InvalidToken => write!(f, "Invalid auth token"),
         }
     }
 }
@@ -33,6 +39,8 @@ impl From<AuthAPIError> for tonic::Status {
             }
             AuthAPIError::UserNotFound => tonic::Status::not_found(error.to_string()),
             AuthAPIError::UnexpectedError => tonic::Status::internal(error.to_string()),
+            AuthAPIError::MissingToken => tonic::Status::unauthenticated(error.to_string()),
+            AuthAPIError::InvalidToken => tonic::Status::unauthenticated(error.to_string()),
         }
     }
 }
