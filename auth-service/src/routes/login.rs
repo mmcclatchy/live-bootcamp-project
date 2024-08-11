@@ -23,29 +23,19 @@ pub async fn post<T: UserStore>(
     State(state): State<Arc<AppState<T>>>,
     jar: CookieJar,
     Json(payload): Json<LoginRequest>,
-) -> (CookieJar, Result<impl IntoResponse, AuthAPIError>) {
+) -> Result<(CookieJar, impl IntoResponse), AuthAPIError> {
     info!("[REST][POST][/signup] Received request: {:?}", payload);
 
-    let email = match Email::parse(payload.email) {
-        Ok(email) => email,
-        Err(msg) => return (jar, Err(AuthAPIError::InvalidEmail(msg))),
-    };
-
-    let password = match Password::parse(payload.password) {
-        Ok(password) => password,
-        Err(msg) => return (jar, Err(AuthAPIError::InvalidPassword(msg))),
-    };
-
+    let email = Email::parse(payload.email).map_err(AuthAPIError::InvalidEmail)?;
+    let password = Password::parse(payload.password).map_err(AuthAPIError::InvalidPassword)?;
     let user_store = state.user_store.write().await;
+
     if user_store.validate_user(&email, &password).await.is_err() {
-        return (jar, Err(AuthAPIError::InvalidCredentials));
+        return Err(AuthAPIError::InvalidCredentials);
     };
 
-    let auth_cookie = match generate_auth_cookie(&email) {
-        Ok(cookie) => cookie,
-        Err(_) => return (jar, Err(AuthAPIError::UnexpectedError)),
-    };
-
+    let auth_cookie = generate_auth_cookie(&email).map_err(|_| AuthAPIError::UnexpectedError)?;
     let updated_jar = jar.add(auth_cookie);
-    (updated_jar, Ok(StatusCode::OK.into_response()))
+
+    Ok((updated_jar, StatusCode::OK.into_response()))
 }
