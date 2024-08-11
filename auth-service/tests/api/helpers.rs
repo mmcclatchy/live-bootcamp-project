@@ -6,6 +6,7 @@ use auth_service::{
         user::User,
     },
     services::{app_state::AppState, hashmap_user_store::HashmapUserStore},
+    utils::constants::test,
     GRPCApp, RESTApp,
 };
 use reqwest::{self, cookie::Jar};
@@ -28,7 +29,7 @@ impl RESTTestApp {
         let user_store = HashmapUserStore::new();
         let user_store_id = user_store.get_id();
         let app_state = AppState::new_arc(user_store);
-        let address = String::from("127.0.0.1:0");
+        let address = String::from(test::APP_REST_ADDRESS);
 
         println!(
             "[GRPCTestApp][new] Bound to address: {address} with UserStore id: {user_store_id}"
@@ -36,7 +37,7 @@ impl RESTTestApp {
 
         let rest_app = RESTApp::new(app_state.clone(), address)
             .await
-            .expect("should create rest app");
+            .expect("[ERROR][RESTTestApp][new] Failed to create RESTApp");
         let address = rest_app.address.clone();
 
         tokio::spawn(rest_app.run());
@@ -49,7 +50,7 @@ impl RESTTestApp {
             .build()
             .unwrap();
 
-        RESTTestApp {
+        Self {
             address: format!("http://{address}"),
             cookie_jar,
             client,
@@ -106,7 +107,7 @@ impl GRPCTestApp {
         let user_store = HashmapUserStore::new();
         let user_store_id = user_store.get_id();
         let app_state = Arc::new(AppState::new(user_store));
-        let address = String::from("127.0.0.1:0");
+        let address = String::from(test::APP_GRPC_ADDRESS);
 
         let grpc_app = GRPCApp::new(app_state.clone(), address.clone())
             .await
@@ -125,7 +126,7 @@ impl GRPCTestApp {
             .await
             .expect("[ERROR][GRPCTestApp][new] Failed to create gRPC client");
 
-        GRPCTestApp {
+        Self {
             address,
             client,
             app_state: app_state.clone(),

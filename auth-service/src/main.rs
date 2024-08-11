@@ -2,6 +2,7 @@ use std::io::Write;
 
 use auth_service::{
     services::{app_state::AppState, hashmap_user_store::HashmapUserStore},
+    utils::constants::prod,
     GRPCApp, RESTApp,
 };
 use log::{error, info};
@@ -25,13 +26,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let user_store = HashmapUserStore::new();
     let app_state = AppState::new_arc(user_store);
 
-    let address = "0.0.0.0:50051".to_string();
+    let address = prod::APP_GRPC_ADDRESS.to_string();
     let grpc_app = GRPCApp::new(app_state.clone(), address)
         .await
         .expect("[ERROR][main] Failed to create GRPCApp");
     let grpc_server = grpc_app.run();
 
-    let address = "0.0.0.0:3000".to_string();
+    let address = prod::APP_REST_ADDRESS.to_string();
     let rest_app = RESTApp::new(app_state, address)
         .await
         .expect("[ERROR][main] Failed to create REST server");
