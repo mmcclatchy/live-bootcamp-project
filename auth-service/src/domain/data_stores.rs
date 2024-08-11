@@ -1,4 +1,5 @@
 use super::user::User;
+
 use crate::domain::{email::Email, password::Password};
 
 #[async_trait::async_trait]
@@ -9,10 +10,24 @@ pub trait UserStore: Clone + Send + Sync + 'static {
         -> Result<(), UserStoreError>;
 }
 
+#[async_trait::async_trait]
+pub trait BannedTokenStore: Clone + Send + Sync + 'static {
+    async fn add_token(&mut self, token: String) -> Result<(), TokenStoreError>;
+    async fn check_token(&mut self, token: String) -> Result<(), TokenStoreError>;
+    async fn expire_tokens(&mut self) -> Result<(), TokenStoreError>;
+}
+
 #[derive(Debug, PartialEq)]
 pub enum UserStoreError {
     UserAlreadyExists,
     UserNotFound,
     InvalidCredentials,
+    UnexpectedError,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum TokenStoreError {
+    BannedToken,
+    InvalidToken,
     UnexpectedError,
 }

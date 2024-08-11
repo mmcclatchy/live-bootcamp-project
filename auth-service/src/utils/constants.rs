@@ -19,8 +19,6 @@ pub mod env {
     pub const JWT_SECRET_ENV_VAR: &str = "JWT_SECRET";
 }
 
-pub const JWT_COOKIE_NAME: &str = "jwt";
-
 pub mod prod {
     pub const APP_REST_ADDRESS: &str = "0.0.0.0:3000";
     pub const APP_GRPC_ADDRESS: &str = "0.0.0.0:50051";
@@ -30,3 +28,7 @@ pub mod test {
     pub const APP_REST_ADDRESS: &str = "127.0.0.1:0";
     pub const APP_GRPC_ADDRESS: &str = "127.0.0.1:0";
 }
+
+pub const JWT_COOKIE_NAME: &str = "jwt";
+
+pub type Epoch = u32;

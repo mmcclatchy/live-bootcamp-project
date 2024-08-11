@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::domain::email::Email;
 
-use super::constants::{JWT_COOKIE_NAME, JWT_SECRET};
+use super::constants::{Epoch, JWT_COOKIE_NAME, JWT_SECRET};
 
 pub const TOKEN_TTL_SECONDS: i64 = 600;
 
@@ -18,7 +18,7 @@ pub enum GenerateTokenError {
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Claims {
     pub sub: String,
-    pub exp: usize,
+    pub exp: Epoch,
 }
 
 pub fn generate_auth_cookie(email: &Email) -> Result<Cookie<'static>, GenerateTokenError> {
@@ -42,7 +42,7 @@ pub fn generate_auth_token(email: &Email) -> Result<String, GenerateTokenError> 
         .checked_add_signed(delta)
         .ok_or(GenerateTokenError::UnexpectedError)?
         .timestamp();
-    let exp: usize = exp
+    let exp: Epoch = exp
         .try_into()
         .map_err(|_| GenerateTokenError::UnexpectedError)?;
     let sub = email.as_ref().to_owned();
@@ -59,7 +59,7 @@ pub async fn validate_token(token: &str) -> Result<Claims, jsonwebtoken::errors:
     .map(|data| data.claims)
 }
 
-fn create_token(claims: &Claims) -> Result<String, jsonwebtoken::errors::Error> {
+pub fn create_token(claims: &Claims) -> Result<String, jsonwebtoken::errors::Error> {
     encode(
         &jsonwebtoken::Header::default(),
         &claims,
@@ -112,7 +112,7 @@ mod tests {
             .expect("valid timestamp")
             .timestamp();
 
-        assert!(result.exp > exp as usize);
+        assert!(result.exp > exp as Epoch);
     }
 
     #[tokio::test]
