@@ -15,7 +15,7 @@ async fn should_return_200_if_valid_jwt_cookie() {
     let cookie = logout_response
         .cookies()
         .find(|c| c.name() == JWT_COOKIE_NAME)
-        .expect("[ERROR][TEST][should_return_200_if_valid_jwt_cookie] No cookie returned");
+        .expect("[ERROR][should_return_200_if_valid_jwt_cookie] No cookie returned");
     assert!(cookie.value().is_empty());
     let app_state = &app.app_state;
     let banned_token_store = app_state.banned_token_store.read().await;
@@ -34,7 +34,7 @@ async fn should_return_400_if_logout_called_twice_in_a_row() {
         logout_response
             .json::<ErrorResponse>()
             .await
-            .expect("[ERROR][TEST][should_return_400_if_jwt_cookie_missing] Could not deserialize response body to ErrorResponse")
+            .expect("[ERROR][should_return_400_if_jwt_cookie_missing] Could not deserialize response body to ErrorResponse")
             .error,
         "Missing auth token".to_owned()
     );
@@ -53,7 +53,7 @@ async fn should_return_400_if_jwt_cookie_missing() {
         logout_response
             .json::<ErrorResponse>()
             .await
-            .expect("[ERROR][TEST][should_return_400_if_jwt_cookie_missing] Could not deserialize response body to ErrorResponse")
+            .expect("[ERROR][should_return_400_if_jwt_cookie_missing] Could not deserialize response body to ErrorResponse")
             .error,
         "Missing auth token".to_owned()
     );
@@ -65,7 +65,7 @@ async fn should_return_401_if_invalid_token() {
     app.cookie_jar.add_cookie_str(
         &format!("{JWT_COOKIE_NAME}=invalid; HttpOnly; SameSite=Lax; Secure; Path=/"),
         &Url::parse("http://127.0.0.1")
-            .expect("[ERROR][TEST][create_app_with_cookie] Failed to parse URL"),
+            .expect("[ERROR][create_app_with_cookie] Failed to parse URL"),
     );
     let logout_response = app.post_logout().await;
     assert_eq!(logout_response.status(), 401);
@@ -77,7 +77,7 @@ async fn should_return_401_if_invalid_token() {
         logout_response
             .json::<ErrorResponse>()
             .await
-            .expect("[ERROR][TEST][should_return_401_if_invalid_token] Could not deserialize response body to ErrorResponse")
+            .expect("[ERROR][should_return_401_if_invalid_token] Could not deserialize response body to ErrorResponse")
             .error,
         "Invalid auth token".to_owned()
     );

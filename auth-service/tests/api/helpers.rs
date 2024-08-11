@@ -108,7 +108,7 @@ impl RESTTestApp {
 
     pub async fn log_user_store(&self, fn_name: &str) {
         let user_store = self.app_state.user_store.read().await;
-        println!("[TEST][{}] {:?}", fn_name, user_store);
+        println!("[{}] {:?}", fn_name, user_store);
     }
 }
 
@@ -152,7 +152,7 @@ impl GRPCTestApp {
 
     pub async fn log_user_store(&self, fn_name: &str) {
         let user_store = self.app_state.user_store.read().await;
-        println!("[TEST][{}] {:?}", fn_name, user_store);
+        println!("[{}] {:?}", fn_name, user_store);
     }
 }
 

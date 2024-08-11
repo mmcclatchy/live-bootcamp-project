@@ -167,7 +167,7 @@ async fn rest_signup_should_return_409_if_email_already_exists() {
         "requires2FA": true,
     });
     println!(
-        "[TEST][rest_signup_should_return_409_if_email_already_exists] {:?}",
+        "[rest_signup_should_return_409_if_email_already_exists] {:?}",
         signup_request
     );
     app.post_signup(&signup_request).await;

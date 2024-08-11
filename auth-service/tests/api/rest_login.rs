@@ -53,7 +53,7 @@ async fn should_return_422_if_malformed_credentials(#[case] test_case: serde_jso
     assert_eq!(
         response.status(),
         422,
-        "[TEST][ERROR][should_return_422_if_malformed_credentials] Failed for input {:?}",
+        "[ERROR][should_return_422_if_malformed_credentials] Failed for input {:?}",
         test_case
     );
 }
@@ -74,7 +74,7 @@ async fn should_return_400_if_invalid_input(#[case] email: &str, #[case] passwor
     assert_eq!(
         response.status(),
         400,
-        "[TEST][ERROR][should_return_400_if_invalid_input] Failed for input {:?}",
+        "[ERROR][should_return_400_if_invalid_input] Failed for input {:?}",
         test_case
     );
 }
@@ -89,7 +89,7 @@ async fn should_return_401_if_incorrect_credentials() {
     assert_eq!(
         login_response.status(),
         401,
-        "[ERROR][TEST][should_return_401_if_incorrect_credentials] Failed for input {:?}",
+        "[ERROR][should_return_401_if_incorrect_credentials] Failed for input {:?}",
         login_body
     )
 }
@@ -104,6 +104,8 @@ async fn should_return_200_if_valid_credentials_and_2fs_disabled() {
     let auth_cookie = login_response
         .cookies()
         .find(|cookie| cookie.name() == JWT_COOKIE_NAME)
-        .expect("[ERROR][TEST][should_return_200_if_valid_credentials_and_2fs_disabled] No auth cookie found");
+        .expect(
+            "[ERROR][should_return_200_if_valid_credentials_and_2fs_disabled] No auth cookie found",
+        );
     assert!(!auth_cookie.value().is_empty());
 }
