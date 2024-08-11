@@ -13,7 +13,7 @@ pub trait UserStore: Clone + Send + Sync + 'static {
 #[async_trait::async_trait]
 pub trait BannedTokenStore: Clone + Send + Sync + 'static {
     async fn add_token(&mut self, token: String) -> Result<(), TokenStoreError>;
-    async fn check_token(&mut self, token: String) -> Result<(), TokenStoreError>;
+    async fn check_token(&self, token: String) -> Result<(), TokenStoreError>;
     async fn expire_tokens(&mut self) -> Result<(), TokenStoreError>;
 }
 

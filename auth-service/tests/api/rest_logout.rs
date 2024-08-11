@@ -1,11 +1,15 @@
-use auth_service::{api::rest::ErrorResponse, utils::constants::JWT_COOKIE_NAME};
+use auth_service::{
+    api::rest::ErrorResponse,
+    domain::data_stores::{BannedTokenStore, TokenStoreError},
+    utils::constants::JWT_COOKIE_NAME,
+};
 use reqwest::Url;
 
-use crate::helpers::{create_app_with_logged_in_cookie, RESTTestApp};
+use crate::helpers::{create_app_with_logged_in_token, RESTTestApp};
 
 #[tokio::test]
 async fn should_return_200_if_valid_jwt_cookie() {
-    let app = create_app_with_logged_in_cookie().await;
+    let (app, token) = create_app_with_logged_in_token().await;
     let logout_response = app.post_logout().await;
     assert_eq!(logout_response.status(), 200);
     let cookie = logout_response
@@ -13,11 +17,15 @@ async fn should_return_200_if_valid_jwt_cookie() {
         .find(|c| c.name() == JWT_COOKIE_NAME)
         .expect("[ERROR][TEST][should_return_200_if_valid_jwt_cookie] No cookie returned");
     assert!(cookie.value().is_empty());
+    let app_state = &app.app_state;
+    let banned_token_store = app_state.banned_token_store.read().await;
+    let check_token_result = banned_token_store.check_token(token).await;
+    assert_eq!(check_token_result, Err(TokenStoreError::BannedToken));
 }
 
 #[tokio::test]
 async fn should_return_400_if_logout_called_twice_in_a_row() {
-    let app = create_app_with_logged_in_cookie().await;
+    let (app, _) = create_app_with_logged_in_token().await;
     let logout_response = app.post_logout().await;
     assert_eq!(logout_response.status(), 200);
     let logout_response = app.post_logout().await;

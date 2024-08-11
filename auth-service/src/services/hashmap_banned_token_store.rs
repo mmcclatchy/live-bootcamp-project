@@ -34,7 +34,7 @@ impl BannedTokenStore for HashMapBannedTokenStore {
         Ok(())
     }
 
-    async fn check_token(&mut self, token: String) -> Result<(), TokenStoreError> {
+    async fn check_token(&self, token: String) -> Result<(), TokenStoreError> {
         let response = match self.tokens.get(&token) {
             Some(_) => Err(TokenStoreError::BannedToken),
             None => Ok(()),
@@ -97,7 +97,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_check_token_not_banned() {
-        let mut store = HashMapBannedTokenStore::new();
+        let store = HashMapBannedTokenStore::new();
         let token = create_token("test@example.com");
 
         let result = store.check_token(token).await;

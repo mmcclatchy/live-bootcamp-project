@@ -12,7 +12,7 @@ use auth_service::{
     utils::constants::{test, JWT_COOKIE_NAME},
     GRPCApp, RESTApp,
 };
-use reqwest::{self, cookie::Jar};
+use reqwest::cookie::Jar;
 use serde::Serialize;
 use serde_json::json;
 use std::sync::Arc;
@@ -178,7 +178,7 @@ pub async fn wait_for_user<'a, T: UserStore>(
     Err(UserStoreError::UserNotFound)
 }
 
-pub async fn create_app_with_logged_in_cookie() -> RESTTestApp {
+pub async fn create_app_with_logged_in_token() -> (RESTTestApp, String) {
     let app = RESTTestApp::new().await;
     let signup_body = json!({
         "email": "test@example.com",
@@ -196,7 +196,8 @@ pub async fn create_app_with_logged_in_cookie() -> RESTTestApp {
     let cookie = login_response
         .cookies()
         .find(|c| c.name() == JWT_COOKIE_NAME)
-        .expect("[ERROR][Test Helper][create_app_with_logged_in_cookie] No auth cookie returned");
+        .expect("[ERROR][Test Helper][create_app_with_logged_in_token] No auth cookie returned");
     assert!(!cookie.value().is_empty());
-    app
+    let token = cookie.value().to_string();
+    (app, token)
 }
