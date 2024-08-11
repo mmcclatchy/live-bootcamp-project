@@ -1,11 +1,13 @@
 use std::sync::Arc;
 
+use rstest::rstest;
+use serde_json::{json, Value};
+
 use auth_service::{
     domain::{data_stores::UserStore, email::Email, password::Password, user::User},
     services::app_state::AppState,
     utils::constants::JWT_COOKIE_NAME,
 };
-use serde_json::{json, Value};
 
 use crate::helpers::{get_random_email, RESTTestApp};
 
@@ -34,45 +36,40 @@ async fn create_existing_user<T: UserStore>(app_state: Arc<AppState<T>>) -> User
     user
 }
 
+#[rstest]
+#[case::missing_password(json!({ "email": "test@example.com" }))]
+#[case::missing_email(json!({ "password": "P@ssword123" }))]
 #[tokio::test]
-async fn should_return_422_if_malformed_credentials() {
+async fn should_return_422_if_malformed_credentials(#[case] test_case: serde_json::Value) {
     let app = RESTTestApp::new().await;
-    let test_cases = [
-        json!({ "email": "test@example.com" }),
-        json!({ "password": "P@ssword123" }),
-    ];
-    for test_case in test_cases.iter() {
-        let response = app.post_login(&test_case).await;
-        assert_eq!(
-            response.status(),
-            422,
-            "[TEST][ERROR][should_return_422_if_malformed_credentials] Failed for input {:?}",
-            test_case
-        )
-    }
+    let response = app.post_login(&test_case).await;
+    assert_eq!(
+        response.status(),
+        422,
+        "[TEST][ERROR][should_return_422_if_malformed_credentials] Failed for input {:?}",
+        test_case
+    );
 }
 
+#[rstest]
+#[case::empty_password("test@example.com", "")]
+#[case::weak_password_no_special_char("test@example.com", "password")]
+#[case::weak_password_no_number("test@example.com", "Password")]
+#[case::weak_password_no_uppercase("test@example.com", "passw0rd")]
+#[case::invalid_email_no_at("test_example.com", "P@ssword123")]
+#[case::invalid_email_no_dot("test@example_com", "P@ssword123")]
+#[case::empty_email("", "P@ssword123")]
 #[tokio::test]
-async fn should_return_400_if_invalid_input() {
+async fn should_return_400_if_invalid_input(#[case] email: &str, #[case] password: &str) {
     let app = RESTTestApp::new().await;
-    let test_cases = [
-        create_login_body("test@example.com", ""),
-        create_login_body("test@example.com", "password"),
-        create_login_body("test@example.com", "Password"),
-        create_login_body("test@example.com", "passw0rd"),
-        create_login_body("test_example.com", "P@ssword123"),
-        create_login_body("test@example_com", "P@ssword123"),
-        create_login_body("", "P@ssword123"),
-    ];
-    for test_case in test_cases.iter() {
-        let response = app.post_login(&test_case).await;
-        assert_eq!(
-            response.status(),
-            400,
-            "[TEST][ERROR][should_return_400_if_invalid_input] Failed for input {:?}",
-            test_case
-        )
-    }
+    let test_case = create_login_body(email, password);
+    let response = app.post_login(&test_case).await;
+    assert_eq!(
+        response.status(),
+        400,
+        "[TEST][ERROR][should_return_400_if_invalid_input] Failed for input {:?}",
+        test_case
+    );
 }
 
 #[tokio::test]
