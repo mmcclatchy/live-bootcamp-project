@@ -1,11 +1,16 @@
 use axum::{http::StatusCode, response::IntoResponse, Json};
 use serde::Deserialize;
 
+use crate::{domain::error::AuthAPIError, utils::auth::validate_token};
+
 #[derive(Debug, Deserialize)]
 pub struct VerifyTokenRequest {
-    _token: String,
+    token: String,
 }
 
-pub async fn post(Json(_token): Json<VerifyTokenRequest>) -> impl IntoResponse {
-    StatusCode::SERVICE_UNAVAILABLE.into_response()
+pub async fn post(Json(request): Json<VerifyTokenRequest>) -> impl IntoResponse {
+    if validate_token(&request.token).await.is_err() {
+        return Err(AuthAPIError::InvalidCredentials);
+    }
+    Ok(StatusCode::OK)
 }
