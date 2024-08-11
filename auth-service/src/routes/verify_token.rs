@@ -7,5 +7,5 @@ pub struct VerifyTokenRequest {
 }
 
 pub async fn post(Json(_token): Json<VerifyTokenRequest>) -> impl IntoResponse {
-    StatusCode::OK.into_response()
+    StatusCode::SERVICE_UNAVAILABLE.into_response()
 }

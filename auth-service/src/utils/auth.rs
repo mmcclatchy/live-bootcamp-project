@@ -35,7 +35,7 @@ pub fn create_auth_cookie(token: String) -> Cookie<'static> {
     cookie
 }
 
-fn generate_auth_token(email: &Email) -> Result<String, GenerateTokenError> {
+pub fn generate_auth_token(email: &Email) -> Result<String, GenerateTokenError> {
     let delta = chrono::Duration::try_seconds(TOKEN_TTL_SECONDS)
         .ok_or(GenerateTokenError::UnexpectedError)?;
     let exp = Utc::now()
