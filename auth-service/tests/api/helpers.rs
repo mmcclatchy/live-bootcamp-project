@@ -6,11 +6,12 @@ use auth_service::{
         user::User,
     },
     services::{app_state::AppState, hashmap_user_store::HashmapUserStore},
-    utils::constants::test,
+    utils::constants::{test, JWT_COOKIE_NAME},
     GRPCApp, RESTApp,
 };
 use reqwest::{self, cookie::Jar};
 use serde::Serialize;
+use serde_json::json;
 use std::sync::Arc;
 use tokio::sync::RwLockReadGuard;
 use tokio::time::{sleep, Duration};
@@ -90,6 +91,17 @@ impl RESTTestApp {
             .expect("[ERROR][RESTTestApp][post_logout] Failed to execute request.")
     }
 
+    pub async fn post_verify_token<Body: Serialize>(&self, body: &Body) -> reqwest::Response {
+        let client_url = format!("{}/verify-token", &self.address);
+        println!("[RESTTestApp][post_verify_token] Client URL: {client_url}");
+        self.client
+            .post(client_url)
+            .json(body)
+            .send()
+            .await
+            .expect("[ERROR][RESTTestApp][post_verify_token] Failed to execute request.")
+    }
+
     pub async fn log_user_store(&self, fn_name: &str) {
         let user_store = self.app_state.user_store.read().await;
         println!("[TEST][{}] {:?}", fn_name, user_store);
@@ -159,4 +171,27 @@ pub async fn wait_for_user<'a, T: UserStore>(
         }
     }
     Err(UserStoreError::UserNotFound)
+}
+
+pub async fn create_app_with_logged_in_cookie() -> RESTTestApp {
+    let app = RESTTestApp::new().await;
+    let signup_body = json!({
+        "email": "test@example.com",
+        "password": "P@ssw0rd",
+        "requires2FA": false,
+    });
+    let signup_response = app.post_signup(&signup_body).await;
+    assert_eq!(signup_response.status(), 201);
+    let login_body = json!({
+        "email": "test@example.com",
+        "password": "P@ssw0rd",
+    });
+    let login_response = app.post_login(&login_body).await;
+    assert_eq!(login_response.status(), 200);
+    let cookie = login_response
+        .cookies()
+        .find(|c| c.name() == JWT_COOKIE_NAME)
+        .expect("[ERROR][Test Helper][create_app_with_logged_in_cookie] No auth cookie returned");
+    assert!(!cookie.value().is_empty());
+    app
 }

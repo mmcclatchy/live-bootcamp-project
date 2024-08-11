@@ -1,34 +1,7 @@
-use auth_service::{
-    api::rest::ErrorResponse,
-    utils::constants::{JWT_COOKIE_NAME, JWT_SECRET},
-};
+use auth_service::{api::rest::ErrorResponse, utils::constants::JWT_COOKIE_NAME};
 use reqwest::Url;
-use serde_json::json;
 
-use crate::helpers::RESTTestApp;
-
-async fn create_app_with_logged_in_cookie() -> RESTTestApp {
-    let app = RESTTestApp::new().await;
-    let signup_body = json!({
-        "email": "test@example.com",
-        "password": "P@ssw0rd",
-        "requires2FA": false,
-    });
-    let signup_response = app.post_signup(&signup_body).await;
-    assert_eq!(signup_response.status(), 201);
-    let login_body = json!({
-        "email": "test@example.com",
-        "password": "P@ssw0rd",
-    });
-    let login_response = app.post_login(&login_body).await;
-    assert_eq!(login_response.status(), 200);
-    let cookie = login_response
-        .cookies()
-        .find(|c| c.name() == JWT_COOKIE_NAME)
-        .expect("[ERROR][Test Helper][create_app_with_logged_in_cookie] No auth cookie returned");
-    assert!(!cookie.value().is_empty());
-    app
-}
+use crate::helpers::{create_app_with_logged_in_cookie, RESTTestApp};
 
 #[tokio::test]
 async fn should_return_200_if_valid_jwt_cookie() {
