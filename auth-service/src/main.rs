@@ -1,7 +1,10 @@
 use std::io::Write;
 
 use auth_service::{
-    services::{app_state::AppState, hashmap_user_store::HashmapUserStore},
+    services::{
+        app_state::AppState, hashmap_banned_token_store::HashMapBannedTokenStore,
+        hashmap_user_store::HashmapUserStore,
+    },
     utils::constants::prod,
     GRPCApp, RESTApp,
 };
@@ -23,8 +26,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     std::io::stderr().flush().unwrap();
     info!("Starting auth service");
 
+    let banned_token_store = HashMapBannedTokenStore::new();
     let user_store = HashmapUserStore::new();
-    let app_state = AppState::new_arc(user_store);
+    let app_state = AppState::new_arc(banned_token_store, user_store);
 
     let address = prod::APP_GRPC_ADDRESS.to_string();
     let grpc_app = GRPCApp::new(app_state.clone(), address)

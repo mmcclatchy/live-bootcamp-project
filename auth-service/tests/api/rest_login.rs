@@ -4,7 +4,12 @@ use rstest::rstest;
 use serde_json::{json, Value};
 
 use auth_service::{
-    domain::{data_stores::UserStore, email::Email, password::Password, user::User},
+    domain::{
+        data_stores::{BannedTokenStore, UserStore},
+        email::Email,
+        password::Password,
+        user::User,
+    },
     services::app_state::AppState,
     utils::constants::JWT_COOKIE_NAME,
 };
@@ -28,7 +33,9 @@ fn create_user(email: &str, password: &str, requires_2fa: bool) -> User {
     }
 }
 
-async fn create_existing_user<T: UserStore>(app_state: Arc<AppState<T>>) -> User {
+async fn create_existing_user<T: BannedTokenStore, U: UserStore>(
+    app_state: Arc<AppState<T, U>>,
+) -> User {
     let random_email = get_random_email();
     let user = create_user(&random_email, "P@assw0rd", false);
     let mut user_store = app_state.user_store.write().await;

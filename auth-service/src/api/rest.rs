@@ -17,7 +17,10 @@ use log::info;
 use serde::{Deserialize, Serialize};
 use tower_http::{cors::CorsLayer, services::ServeDir, trace::TraceLayer};
 
-use crate::domain::{data_stores::UserStore, error::AuthAPIError};
+use crate::domain::{
+    data_stores::{BannedTokenStore, UserStore},
+    error::AuthAPIError,
+};
 use crate::routes;
 use crate::services::app_state::AppState;
 
@@ -36,8 +39,11 @@ pub struct RESTApp {
 }
 
 impl RESTApp {
-    pub async fn new<T: UserStore + Send + Sync + 'static>(
-        app_state: Arc<AppState<T>>,
+    pub async fn new<
+        T: BannedTokenStore + Send + Sync + 'static,
+        U: UserStore + Send + Sync + 'static,
+    >(
+        app_state: Arc<AppState<T, U>>,
         address: String,
     ) -> Result<Self, Box<dyn Error>> {
         let allowed_origins = [

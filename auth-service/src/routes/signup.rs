@@ -5,7 +5,7 @@ use axum::{extract::State, Json};
 use log::info;
 use serde::{Deserialize, Serialize};
 
-use crate::domain::data_stores::UserStoreError;
+use crate::domain::data_stores::{BannedTokenStore, UserStoreError};
 use crate::domain::{
     data_stores::UserStore, email::Email, error::AuthAPIError, password::Password, user::User,
 };
@@ -24,8 +24,8 @@ pub struct SignupResponse {
     message: String,
 }
 
-pub async fn post<T: UserStore>(
-    State(state): State<Arc<AppState<T>>>,
+pub async fn post<T: BannedTokenStore, U: UserStore>(
+    State(state): State<Arc<AppState<T, U>>>,
     Json(payload): Json<SignupRequest>,
 ) -> Result<(StatusCode, Json<SignupResponse>), AuthAPIError> {
     info!("[REST][POST][/signup] Received request: {:?}", payload);

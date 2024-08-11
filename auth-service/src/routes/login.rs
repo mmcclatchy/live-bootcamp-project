@@ -7,6 +7,7 @@ use axum_extra::extract::CookieJar;
 use log::info;
 use serde::Deserialize;
 
+use crate::domain::data_stores::BannedTokenStore;
 use crate::domain::{
     data_stores::UserStore, email::Email, error::AuthAPIError, password::Password,
 };
@@ -19,8 +20,8 @@ pub struct LoginRequest {
     pub password: String,
 }
 
-pub async fn post<T: UserStore>(
-    State(state): State<Arc<AppState<T>>>,
+pub async fn post<T: BannedTokenStore, U: UserStore>(
+    State(state): State<Arc<AppState<T, U>>>,
     jar: CookieJar,
     Json(payload): Json<LoginRequest>,
 ) -> Result<(CookieJar, impl IntoResponse), AuthAPIError> {

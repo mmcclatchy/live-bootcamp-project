@@ -4,6 +4,7 @@ use std::{error::Error, net::SocketAddr};
 use log::info;
 use tonic::{Request, Response, Status};
 
+use crate::domain::data_stores::BannedTokenStore;
 use crate::domain::{
     data_stores::{UserStore, UserStoreError},
     email::Email,
@@ -17,18 +18,20 @@ use auth_proto::{
     SignupRequest, SignupResponse, VerifyTokenRequest, VerifyTokenResponse,
 };
 
-pub struct GRPCAuthService<T: UserStore> {
-    pub app_state: Arc<AppState<T>>,
+pub struct GRPCAuthService<T: BannedTokenStore, U: UserStore> {
+    pub app_state: Arc<AppState<T, U>>,
 }
 
-impl<T: UserStore> GRPCAuthService<T> {
-    pub fn new(app_state: Arc<AppState<T>>) -> Self {
+impl<T: BannedTokenStore, U: UserStore> GRPCAuthService<T, U> {
+    pub fn new(app_state: Arc<AppState<T, U>>) -> Self {
         Self { app_state }
     }
 }
 
 #[tonic::async_trait]
-impl<T: UserStore + Send + Sync + 'static> AuthService for GRPCAuthService<T> {
+impl<T: BannedTokenStore + Send + Sync + 'static, U: UserStore + Send + Sync + 'static> AuthService
+    for GRPCAuthService<T, U>
+{
     async fn signup(
         &self,
         request: Request<SignupRequest>,
@@ -64,13 +67,21 @@ impl<T: UserStore + Send + Sync + 'static> AuthService for GRPCAuthService<T> {
     }
 }
 
-pub struct GRPCApp<T: UserStore + Send + Sync + 'static> {
+pub struct GRPCApp<
+    T: BannedTokenStore + Send + Sync + 'static,
+    U: UserStore + Send + Sync + 'static,
+> {
     pub address: SocketAddr,
-    server: AuthServiceServer<GRPCAuthService<T>>,
+    server: AuthServiceServer<GRPCAuthService<T, U>>,
 }
 
-impl<T: UserStore + Send + Sync + 'static> GRPCApp<T> {
-    pub async fn new(app_state: Arc<AppState<T>>, address: String) -> Result<Self, Box<dyn Error>> {
+impl<T: BannedTokenStore + Send + Sync + 'static, U: UserStore + Send + Sync + 'static>
+    GRPCApp<T, U>
+{
+    pub async fn new(
+        app_state: Arc<AppState<T, U>>,
+        address: String,
+    ) -> Result<Self, Box<dyn Error>> {
         let listener = tokio::net::TcpListener::bind(&address).await?;
         let address = listener.local_addr()?.to_string();
         #[allow(clippy::expect_fun_call)]
