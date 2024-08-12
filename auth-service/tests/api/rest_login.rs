@@ -71,6 +71,7 @@ async fn should_return_400_if_invalid_input(#[case] email: &str, #[case] passwor
     let app = RESTTestApp::new().await;
     let test_case = create_login_body(email, password);
     let response = app.post_login(&test_case).await;
+
     assert_eq!(
         response.status(),
         400,
@@ -86,6 +87,7 @@ async fn should_return_401_if_incorrect_credentials() {
     let login_body =
         json!({ "email": user.email.to_string(),  "password": "Inv@lid_passw0rd".to_string() });
     let login_response = app.post_login(&login_body).await;
+
     assert_eq!(
         login_response.status(),
         401,
@@ -100,12 +102,34 @@ async fn should_return_200_if_valid_credentials_and_2fs_disabled() {
     let user = create_existing_user(app.app_state.clone()).await;
     let login_body = create_login_body(&user.email.to_string(), &user.password.to_string());
     let login_response = app.post_login(&login_body).await;
+
     assert_eq!(login_response.status(), 200);
+
     let auth_cookie = login_response
         .cookies()
         .find(|cookie| cookie.name() == JWT_COOKIE_NAME)
         .expect(
             "[ERROR][should_return_200_if_valid_credentials_and_2fs_disabled] No auth cookie found",
         );
+
+    assert!(!auth_cookie.value().is_empty());
+}
+
+#[tokio::test]
+async fn should_return_206_if_valid_credentials_and_2fa_enabled() {
+    let app = RESTTestApp::new().await;
+    let user = create_existing_user(app.app_state.clone()).await;
+    let login_body = create_login_body(&user.email.to_string(), &user.password.to_string());
+    let login_response = app.post_login(&login_body).await;
+
+    assert_eq!(login_response.status(), 206);
+
+    let auth_cookie = login_response
+        .cookies()
+        .find(|cookie| cookie.name() == JWT_COOKIE_NAME)
+        .expect(
+            "[ERROR][should_return_200_if_valid_credentials_and_2fs_disabled] No auth cookie found",
+        );
+
     assert!(!auth_cookie.value().is_empty());
 }
