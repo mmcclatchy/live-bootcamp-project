@@ -47,7 +47,7 @@ impl RESTApp {
         address: String,
     ) -> Result<Self, Box<dyn Error>> {
         let allowed_origins = [
-            "http://localhost/app".parse()?,
+            "http://localhost".parse()?,
             "https://rust-bc.markmcclatchy.com/app".parse()?,
         ];
 

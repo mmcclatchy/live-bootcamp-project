@@ -23,6 +23,8 @@ logoutLink.addEventListener("click", (e) => {
 
 (() => {
     fetch('/protected').then(response => {
+        console.log(response);
+
         if (response.ok) {
             loginLink.style.display = "none";
             logoutLink.style.display = "block";

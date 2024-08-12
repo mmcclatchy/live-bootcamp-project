@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use chrono::Utc;
 
 use crate::domain::data_stores::{BannedTokenStore, TokenStoreError};
-use crate::utils::{auth::validate_token, constants::Epoch};
+use crate::utils::{auth::validate_token_structure, constants::Epoch};
 
 #[derive(Clone, Debug)]
 pub struct HashMapBannedTokenStore {
@@ -27,7 +27,7 @@ impl Default for HashMapBannedTokenStore {
 #[async_trait::async_trait]
 impl BannedTokenStore for HashMapBannedTokenStore {
     async fn add_token(&mut self, token: String) -> Result<(), TokenStoreError> {
-        let claims = validate_token(&token)
+        let claims = validate_token_structure(&token)
             .await
             .map_err(|_| TokenStoreError::InvalidToken)?;
         self.tokens.insert(token.clone(), claims.exp);

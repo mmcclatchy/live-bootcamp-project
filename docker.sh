@@ -22,3 +22,5 @@ while IFS= read -r line; do
 done < <(grep -v '^#' "$ENV_FILE")
 
 docker compose up --build -d
+# docker compose build --no-cache
+# docker compose up -d

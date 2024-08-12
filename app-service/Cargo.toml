@@ -7,15 +7,17 @@ edition = "2021"
 
 [dependencies]
 app-proto = { path = "./proto" }
+askama = "0.12.1"
 axum = "0.7.4"
 axum-extra = { version = "0.9.2", features = ["cookie"] }
-tower-http = { version = "0.5.0", features = ["fs"] }
-tokio = { version = "1", features = ["full"] }
+env_logger = "0.11.5"
+log = "0.4"
 reqwest = { version = "0.12.5", default-features = false, features = ["json"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-askama = "0.12.1"
+tokio = { version = "1", features = ["full"] }
 tonic = "0.12.1"
+tower-http = { version = "0.5.0", features = ["fs"] }
 
 
 [build-dependencies]

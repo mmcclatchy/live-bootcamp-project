@@ -1,4 +1,4 @@
-use std::env;
+use std::{env, panic};
 
 use askama::Template;
 use axum::{
@@ -38,8 +38,13 @@ impl AppConfig {
 
 #[tokio::main]
 async fn main() {
-    let config = AppConfig::from_env();
+    env_logger::init();
+    println!("Starting app-service");
+    panic::set_hook(Box::new(|panic_info| {
+        println!("Panic occurred: {:?}", panic_info);
+    }));
 
+    let config = AppConfig::from_env();
     let app = Router::new()
         .nest_service("/assets", ServeDir::new("assets"))
         .route("/", get(rest_root))
@@ -75,6 +80,7 @@ fn create_index_template(base_url: &str) -> IndexTemplate {
 async fn rest_root(
     axum::extract::State(config): axum::extract::State<AppConfig>,
 ) -> impl IntoResponse {
+    println!("[rest_root] Called");
     let template = create_index_template(&config.rest_auth_service_url);
     Html(template.render().unwrap())
 }
@@ -82,6 +88,7 @@ async fn rest_root(
 async fn grpc_root(
     axum::extract::State(config): axum::extract::State<AppConfig>,
 ) -> impl IntoResponse {
+    println!("[grpc_root] Called");
     let template = create_index_template(&config.grpc_auth_service_url);
     Html(template.render().unwrap())
 }
@@ -90,26 +97,72 @@ async fn rest_protected(
     jar: CookieJar,
     axum::extract::State(config): axum::extract::State<AppConfig>,
 ) -> impl IntoResponse {
+    println!("[rest_protected] Called");
+
     let jwt_cookie = match jar.get("jwt") {
-        Some(cookie) => cookie,
-        None => return StatusCode::UNAUTHORIZED.into_response(),
+        Some(cookie) => {
+            println!("[rest_protected] JWT cookie found: {}", cookie.value());
+            cookie
+        }
+        None => {
+            println!("[rest_protected] No JWT cookie found");
+            return StatusCode::UNAUTHORIZED.into_response();
+        }
     };
 
-    let api_client = reqwest::Client::builder().build().unwrap();
+    let api_client = match reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+    {
+        Ok(client) => client,
+        Err(e) => {
+            println!("[rest_protected] Failed to build API client: {:?}", e);
+            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+        }
+    };
+
     let verify_token_body = serde_json::json!({ "token": jwt_cookie.value() });
-    let url = format!("http://{}/auth/verify-token", config.rest_auth_service_host);
+    let url = format!("http://{}/verify-token", config.rest_auth_service_host);
+    println!("[rest_protected] Verify Token URL: {}", url);
 
     let response = match api_client.post(&url).json(&verify_token_body).send().await {
-        Ok(response) => response,
-        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Ok(response) => {
+            println!("[rest_protected] Verify Token Response Ok");
+            response
+        }
+        Err(e) => {
+            println!(
+                "[rest_protected] Failed to send request to auth service: {:?}",
+                e
+            );
+            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+        }
     };
 
     match response.status() {
+        reqwest::StatusCode::OK => {
+            println!("[rest_protected] Token validation succeeded");
+            Json(ProtectedRouteResponse::new()).into_response()
+        }
         reqwest::StatusCode::UNAUTHORIZED | reqwest::StatusCode::BAD_REQUEST => {
+            println!(
+                "[rest_protected] Token validation failed: {:?}",
+                response.status()
+            );
             StatusCode::UNAUTHORIZED.into_response()
         }
-        reqwest::StatusCode::OK => Json(ProtectedRouteResponse::new()).into_response(),
-        _ => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        _ => {
+            println!(
+                "[rest_protected] Unexpected response from auth service: {:?}",
+                response.status()
+            );
+            let body = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Failed to read response body".to_string());
+            println!("[rest_protected] Response body: {}", body);
+            StatusCode::INTERNAL_SERVER_ERROR.into_response()
+        }
     }
 }
 
@@ -117,6 +170,8 @@ async fn grpc_protected(
     jar: CookieJar,
     axum::extract::State(config): axum::extract::State<AppConfig>,
 ) -> impl IntoResponse {
+    println!("[grpc_protected] Called");
+
     let jwt_cookie = match jar.get("jwt") {
         Some(cookie) => cookie,
         None => return StatusCode::UNAUTHORIZED.into_response(),
@@ -143,30 +198,37 @@ async fn grpc_protected(
 }
 
 fn create_redirect(base_url: &str, endpoint: &str) -> impl IntoResponse {
-    Redirect::to(&format!("{}/{}", base_url, endpoint))
+    println!("[create_redirect] Called");
+    let redirect_uri = &format!("{}/{}", base_url, endpoint);
+    println!("[create_redirect] Redirect URI: {redirect_uri}");
+    Redirect::to(redirect_uri)
 }
 
 async fn rest_login(
     axum::extract::State(config): axum::extract::State<AppConfig>,
 ) -> impl IntoResponse {
+    println!("[rest_login] Called");
     create_redirect(&config.rest_auth_service_url, "login")
 }
 
 async fn rest_logout(
     axum::extract::State(config): axum::extract::State<AppConfig>,
 ) -> impl IntoResponse {
+    println!("[rest_logout] Called");
     create_redirect(&config.rest_auth_service_url, "logout")
 }
 
 async fn grpc_login(
     axum::extract::State(config): axum::extract::State<AppConfig>,
 ) -> impl IntoResponse {
+    println!("[grpc_login] Called");
     create_redirect(&config.grpc_auth_service_url, "login")
 }
 
 async fn grpc_logout(
     axum::extract::State(config): axum::extract::State<AppConfig>,
 ) -> impl IntoResponse {
+    println!("[grpc_logout] Called");
     create_redirect(&config.grpc_auth_service_url, "logout")
 }
 

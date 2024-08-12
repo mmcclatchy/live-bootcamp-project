@@ -20,7 +20,7 @@ pub async fn post<T: BannedTokenStore, U: UserStore>(
     };
 
     let token = cookie.value().to_owned();
-    validate_token(&token)
+    validate_token(state.banned_token_store.clone(), &token)
         .await
         .map_err(|_| AuthAPIError::InvalidToken)?;
 

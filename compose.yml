@@ -6,7 +6,7 @@ services:
       dockerfile: Dockerfile
     restart: always
     environment:
-      AUTH_SERVICE_URL: https://rust-bc.markmcclatchy.com/auth
+      REST_AUTH_SERVICE_URL: https://rust-bc.markmcclatchy.com/auth
       REST_AUTH_SERVICE_HOST: auth-service:3000
       GRPC_AUTH_SERVICE_HOST: auth-service:50051
     ports:
