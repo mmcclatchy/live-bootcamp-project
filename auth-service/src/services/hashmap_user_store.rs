@@ -54,12 +54,12 @@ impl UserStore for HashmapUserStore {
         &self,
         email: &Email,
         password: &Password,
-    ) -> Result<(), UserStoreError> {
+    ) -> Result<User, UserStoreError> {
         match self.users.get(email) {
             None => Err(UserStoreError::UserNotFound),
             Some(user) => {
                 if user.password == *password {
-                    return Ok(());
+                    return Ok(user.clone());
                 }
                 Err(UserStoreError::InvalidCredentials)
             }

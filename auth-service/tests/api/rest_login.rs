@@ -10,6 +10,7 @@ use auth_service::{
         password::Password,
         user::User,
     },
+    routes::login::TwoFactorAuthResponse,
     services::app_state::AppState,
     utils::constants::JWT_COOKIE_NAME,
 };
@@ -35,9 +36,10 @@ fn create_user(email: &str, password: &str, requires_2fa: bool) -> User {
 
 async fn create_existing_user<T: BannedTokenStore, U: UserStore>(
     app_state: Arc<AppState<T, U>>,
+    requires_2fa: bool,
 ) -> User {
     let random_email = get_random_email();
-    let user = create_user(&random_email, "P@assw0rd", false);
+    let user = create_user(&random_email, "P@assw0rd", requires_2fa);
     let mut user_store = app_state.user_store.write().await;
     user_store.add_user(user.clone()).await.unwrap();
     user
@@ -83,7 +85,7 @@ async fn should_return_400_if_invalid_input(#[case] email: &str, #[case] passwor
 #[tokio::test]
 async fn should_return_401_if_incorrect_credentials() {
     let app = RESTTestApp::new().await;
-    let user = create_existing_user(app.app_state.clone()).await;
+    let user = create_existing_user(app.app_state.clone(), false).await;
     let login_body =
         json!({ "email": user.email.to_string(),  "password": "Inv@lid_passw0rd".to_string() });
     let login_response = app.post_login(&login_body).await;
@@ -99,7 +101,7 @@ async fn should_return_401_if_incorrect_credentials() {
 #[tokio::test]
 async fn should_return_200_if_valid_credentials_and_2fs_disabled() {
     let app = RESTTestApp::new().await;
-    let user = create_existing_user(app.app_state.clone()).await;
+    let user = create_existing_user(app.app_state.clone(), false).await;
     let login_body = create_login_body(&user.email.to_string(), &user.password.to_string());
     let login_response = app.post_login(&login_body).await;
 
@@ -118,18 +120,13 @@ async fn should_return_200_if_valid_credentials_and_2fs_disabled() {
 #[tokio::test]
 async fn should_return_206_if_valid_credentials_and_2fa_enabled() {
     let app = RESTTestApp::new().await;
-    let user = create_existing_user(app.app_state.clone()).await;
+    let user = create_existing_user(app.app_state.clone(), true).await;
     let login_body = create_login_body(&user.email.to_string(), &user.password.to_string());
-    let login_response = app.post_login(&login_body).await;
 
+    let login_response = app.post_login(&login_body).await;
     assert_eq!(login_response.status(), 206);
 
-    let auth_cookie = login_response
-        .cookies()
-        .find(|cookie| cookie.name() == JWT_COOKIE_NAME)
-        .expect(
-            "[ERROR][should_return_200_if_valid_credentials_and_2fs_disabled] No auth cookie found",
-        );
-
-    assert!(!auth_cookie.value().is_empty());
+    let response_body: TwoFactorAuthResponse = login_response.json().await.unwrap();
+    assert_eq!(response_body.message, "2FA required");
+    assert_eq!(response_body.login_attempt_id, "123456");
 }
