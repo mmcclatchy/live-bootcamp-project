@@ -239,6 +239,7 @@ dependencies = [
  "log",
  "quickcheck",
  "quickcheck_macros",
+ "rand",
  "reqwest",
  "rstest",
  "serde",

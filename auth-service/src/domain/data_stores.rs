@@ -1,3 +1,6 @@
+use rand::Rng;
+use uuid::Uuid;
+
 use super::user::User;
 
 use crate::domain::{email::Email, password::Password};
@@ -33,4 +36,65 @@ pub enum TokenStoreError {
     BannedToken,
     InvalidToken,
     UnexpectedError,
+}
+
+#[async_trait::async_trait]
+pub trait TwoFACodeStore {
+    async fn add_code(
+        &mut self,
+        email: Email,
+        login_attempt_id: LoginAttemptId,
+        code: TwoFACode,
+    ) -> Result<(), TwoFACodeStoreError>;
+
+    async fn remove_code(&mut self, email: &Email) -> Result<(), TwoFACodeStoreError>;
+
+    async fn get_code(
+        &self,
+        email: &Email,
+    ) -> Result<(LoginAttemptId, TwoFACode), TwoFACodeStoreError>;
+}
+
+#[derive(Debug, PartialEq)]
+pub enum TwoFACodeStoreError {
+    LoginAttemptIdNotFound,
+    UnexpectedError,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct LoginAttemptId(String);
+
+impl LoginAttemptId {
+    pub fn parse(id: String) -> Result<Self, String> {
+        match Uuid::parse_str(&id) {
+            Err(_) => Err(String::from("Invalid Login Attempt Id")),
+            Ok(_) => Ok(Self(id)),
+        }
+    }
+}
+
+impl Default for LoginAttemptId {
+    fn default() -> Self {
+        Self(Uuid::new_v4().to_string())
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct TwoFACode(String);
+
+impl TwoFACode {
+    pub fn parse(code: String) -> Result<Self, String> {
+        match code.len() != 6 && !code.chars().all(char::is_numeric) {
+            false => Err("Incorrect Two-Factor Authorization Code".to_string()),
+            true => Ok(Self(code)),
+        }
+    }
+}
+
+impl Default for TwoFACode {
+    fn default() -> Self {
+        let mut range = rand::thread_rng();
+        let code = (0..6).map(|_| range.gen_range(0..10).to_string()).collect();
+        Self(code)
+    }
 }
