@@ -7,7 +7,7 @@ use axum_extra::extract::CookieJar;
 use log::info;
 use serde::{Deserialize, Serialize};
 
-use crate::domain::data_stores::{BannedTokenStore, TwoFACodeStore};
+use crate::domain::data_stores::{BannedTokenStore, LoginAttemptId, TwoFACode, TwoFACodeStore};
 use crate::domain::{
     data_stores::UserStore, email::Email, error::AuthAPIError, password::Password,
 };
@@ -52,7 +52,7 @@ pub async fn post<T: BannedTokenStore, U: UserStore, V: TwoFACodeStore>(
 
     match user.requires_2fa {
         false => handle_no_2fa(&email, jar).await,
-        true => handle_2fa(jar).await,
+        true => handle_2fa(&email, &state, jar).await,
     }
 }
 
@@ -68,13 +68,26 @@ async fn handle_no_2fa(
     ))
 }
 
-async fn handle_2fa(
+async fn handle_2fa<T: BannedTokenStore, U: UserStore, V: TwoFACodeStore>(
+    email: &Email,
+    state: &AppState<T, U, V>,
     jar: CookieJar,
 ) -> Result<(CookieJar, (StatusCode, Json<LoginResponse>)), AuthAPIError> {
+    let login_attempt_id = LoginAttemptId::default();
+    let two_fa_code = TwoFACode::default();
+
+    let email = (*email).clone();
+    let mut two_fa_code_store = state.two_fa_code_store.write().await;
+    two_fa_code_store
+        .add_code(email, login_attempt_id.clone(), two_fa_code)
+        .await
+        .map_err(|_| AuthAPIError::UnexpectedError)?;
+
     let response = TwoFactorAuthResponse {
         message: "2FA required".to_string(),
-        login_attempt_id: "123456".to_string(),
+        login_attempt_id: login_attempt_id.to_string(),
     };
+
     Ok((
         jar,
         (

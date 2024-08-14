@@ -1,7 +1,7 @@
 use auth_proto::auth_service_client::AuthServiceClient;
 use auth_service::{
     domain::{
-        data_stores::{TwoFACodeStore, UserStore, UserStoreError},
+        data_stores::{UserStore, UserStoreError},
         email::Email,
         user::User,
     },
