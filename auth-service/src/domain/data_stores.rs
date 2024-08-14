@@ -1,3 +1,5 @@
+use std::fmt;
+
 use rand::Rng;
 use uuid::Uuid;
 
@@ -79,6 +81,18 @@ impl Default for LoginAttemptId {
     }
 }
 
+impl AsRef<str> for LoginAttemptId {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
+impl fmt::Display for LoginAttemptId {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct TwoFACode(String);
 
@@ -96,5 +110,17 @@ impl Default for TwoFACode {
         let mut range = rand::thread_rng();
         let code = (0..6).map(|_| range.gen_range(0..10).to_string()).collect();
         Self(code)
+    }
+}
+
+impl AsRef<str> for TwoFACode {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
+impl fmt::Display for TwoFACode {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
     }
 }

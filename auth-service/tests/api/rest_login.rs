@@ -126,7 +126,13 @@ async fn should_return_206_if_valid_credentials_and_2fa_enabled() {
     let login_response = app.post_login(&login_body).await;
     assert_eq!(login_response.status(), 206);
 
-    let response_body: TwoFactorAuthResponse = login_response.json().await.unwrap();
+    let response_body: TwoFactorAuthResponse = login_response
+        .json()
+        .await
+        .expect("[ERROR][should_return_206_if_valid_credentials_and_2fa_enabled] Failed to parse login response body");
     assert_eq!(response_body.message, "2FA required");
-    assert_eq!(response_body.login_attempt_id, "123456");
+
+    let two_fa_code_store = app.app_state.two_fa_code_store.read().await;
+    let (login_attempt_id, _) = two_fa_code_store.get_code(&user.email).await.unwrap();
+    assert_eq!(response_body.login_attempt_id, login_attempt_id.to_string());
 }
