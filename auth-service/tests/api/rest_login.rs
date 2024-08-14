@@ -5,7 +5,7 @@ use serde_json::{json, Value};
 
 use auth_service::{
     domain::{
-        data_stores::{BannedTokenStore, UserStore},
+        data_stores::{BannedTokenStore, TwoFACodeStore, UserStore},
         email::Email,
         password::Password,
         user::User,
@@ -34,8 +34,8 @@ fn create_user(email: &str, password: &str, requires_2fa: bool) -> User {
     }
 }
 
-async fn create_existing_user<T: BannedTokenStore, U: UserStore>(
-    app_state: Arc<AppState<T, U>>,
+async fn create_existing_user<T: BannedTokenStore, U: UserStore, V: TwoFACodeStore>(
+    app_state: Arc<AppState<T, U, V>>,
     requires_2fa: bool,
 ) -> User {
     let random_email = get_random_email();

@@ -7,7 +7,7 @@ use axum_extra::extract::CookieJar;
 use log::info;
 use serde::{Deserialize, Serialize};
 
-use crate::domain::data_stores::BannedTokenStore;
+use crate::domain::data_stores::{BannedTokenStore, TwoFACodeStore};
 use crate::domain::{
     data_stores::UserStore, email::Email, error::AuthAPIError, password::Password,
 };
@@ -34,8 +34,8 @@ pub enum LoginResponse {
     TwoFactorAuth(TwoFactorAuthResponse),
 }
 
-pub async fn post<T: BannedTokenStore, U: UserStore>(
-    State(state): State<Arc<AppState<T, U>>>,
+pub async fn post<T: BannedTokenStore, U: UserStore, V: TwoFACodeStore>(
+    State(state): State<Arc<AppState<T, U, V>>>,
     jar: CookieJar,
     Json(payload): Json<LoginRequest>,
 ) -> Result<(CookieJar, impl IntoResponse), AuthAPIError> {

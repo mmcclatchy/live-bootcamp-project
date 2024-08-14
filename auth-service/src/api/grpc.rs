@@ -4,7 +4,7 @@ use std::{error::Error, net::SocketAddr};
 use log::info;
 use tonic::{Request, Response, Status};
 
-use crate::domain::data_stores::BannedTokenStore;
+use crate::domain::data_stores::{BannedTokenStore, TwoFACodeStore};
 use crate::domain::{
     data_stores::{UserStore, UserStoreError},
     email::Email,
@@ -18,19 +18,22 @@ use auth_proto::{
     SignupRequest, SignupResponse, VerifyTokenRequest, VerifyTokenResponse,
 };
 
-pub struct GRPCAuthService<T: BannedTokenStore, U: UserStore> {
-    pub app_state: Arc<AppState<T, U>>,
+pub struct GRPCAuthService<T: BannedTokenStore, U: UserStore, V: TwoFACodeStore> {
+    pub app_state: Arc<AppState<T, U, V>>,
 }
 
-impl<T: BannedTokenStore, U: UserStore> GRPCAuthService<T, U> {
-    pub fn new(app_state: Arc<AppState<T, U>>) -> Self {
+impl<T: BannedTokenStore, U: UserStore, V: TwoFACodeStore> GRPCAuthService<T, U, V> {
+    pub fn new(app_state: Arc<AppState<T, U, V>>) -> Self {
         Self { app_state }
     }
 }
 
 #[tonic::async_trait]
-impl<T: BannedTokenStore + Send + Sync + 'static, U: UserStore + Send + Sync + 'static> AuthService
-    for GRPCAuthService<T, U>
+impl<
+        T: BannedTokenStore + Send + Sync + 'static,
+        U: UserStore + Send + Sync + 'static,
+        V: TwoFACodeStore + Send + Sync + 'static,
+    > AuthService for GRPCAuthService<T, U, V>
 {
     async fn signup(
         &self,
@@ -70,16 +73,20 @@ impl<T: BannedTokenStore + Send + Sync + 'static, U: UserStore + Send + Sync + '
 pub struct GRPCApp<
     T: BannedTokenStore + Send + Sync + 'static,
     U: UserStore + Send + Sync + 'static,
+    V: TwoFACodeStore + Send + Sync + 'static,
 > {
     pub address: SocketAddr,
-    server: AuthServiceServer<GRPCAuthService<T, U>>,
+    server: AuthServiceServer<GRPCAuthService<T, U, V>>,
 }
 
-impl<T: BannedTokenStore + Send + Sync + 'static, U: UserStore + Send + Sync + 'static>
-    GRPCApp<T, U>
+impl<
+        T: BannedTokenStore + Send + Sync + 'static,
+        U: UserStore + Send + Sync + 'static,
+        V: TwoFACodeStore + Send + Sync + 'static,
+    > GRPCApp<T, U, V>
 {
     pub async fn new(
-        app_state: Arc<AppState<T, U>>,
+        app_state: Arc<AppState<T, U, V>>,
         address: String,
     ) -> Result<Self, Box<dyn Error>> {
         let listener = tokio::net::TcpListener::bind(&address).await?;

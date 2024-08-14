@@ -10,6 +10,14 @@ pub struct HashMapTwoFACodeStore {
     codes: HashMap<Email, (LoginAttemptId, TwoFACode)>,
 }
 
+impl HashMapTwoFACodeStore {
+    pub fn new() -> Self {
+        Self {
+            codes: HashMap::new(),
+        }
+    }
+}
+
 #[async_trait::async_trait]
 impl TwoFACodeStore for HashMapTwoFACodeStore {
     async fn add_code(

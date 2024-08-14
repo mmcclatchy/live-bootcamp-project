@@ -1,13 +1,13 @@
 use auth_proto::auth_service_client::AuthServiceClient;
 use auth_service::{
     domain::{
-        data_stores::{UserStore, UserStoreError},
+        data_stores::{TwoFACodeStore, UserStore, UserStoreError},
         email::Email,
         user::User,
     },
     services::{
         app_state::AppState, hashmap_banned_token_store::HashMapBannedTokenStore,
-        hashmap_user_store::HashmapUserStore,
+        hashmap_two_fa_code_store::HashMapTwoFACodeStore, hashmap_user_store::HashmapUserStore,
     },
     utils::constants::{test, JWT_COOKIE_NAME},
     GRPCApp, RESTApp,
@@ -25,7 +25,7 @@ pub struct RESTTestApp {
     pub address: String,
     pub cookie_jar: Arc<Jar>,
     pub client: reqwest::Client,
-    pub app_state: Arc<AppState<HashMapBannedTokenStore, HashmapUserStore>>,
+    pub app_state: Arc<AppState<HashMapBannedTokenStore, HashmapUserStore, HashMapTwoFACodeStore>>,
 }
 
 impl RESTTestApp {
@@ -33,7 +33,8 @@ impl RESTTestApp {
         let banned_token_store = HashMapBannedTokenStore::new();
         let user_store = HashmapUserStore::new();
         let user_store_id = user_store.get_id();
-        let app_state = AppState::new_arc(banned_token_store, user_store);
+        let two_fa_code_store = HashMapTwoFACodeStore::new();
+        let app_state = AppState::new_arc(banned_token_store, user_store, two_fa_code_store);
         let address = String::from(test::APP_REST_ADDRESS);
 
         println!(
@@ -115,7 +116,7 @@ impl RESTTestApp {
 pub struct GRPCTestApp {
     pub address: String,
     pub client: AuthServiceClient<Channel>,
-    pub app_state: Arc<AppState<HashMapBannedTokenStore, HashmapUserStore>>,
+    pub app_state: Arc<AppState<HashMapBannedTokenStore, HashmapUserStore, HashMapTwoFACodeStore>>,
 }
 
 impl GRPCTestApp {
@@ -123,7 +124,12 @@ impl GRPCTestApp {
         let banned_token_store = HashMapBannedTokenStore::new();
         let user_store = HashmapUserStore::new();
         let user_store_id = user_store.get_id();
-        let app_state = Arc::new(AppState::new(banned_token_store, user_store));
+        let two_fa_code_store = HashMapTwoFACodeStore::new();
+        let app_state = Arc::new(AppState::new(
+            banned_token_store,
+            user_store,
+            two_fa_code_store,
+        ));
         let address = String::from(test::APP_GRPC_ADDRESS);
 
         let grpc_app = GRPCApp::new(app_state.clone(), address.clone())
