@@ -1,5 +1,6 @@
 use crate::domain::{email::Email, email_client::EmailClient};
 
+#[derive(Debug)]
 pub struct MockEmailClient;
 
 #[async_trait::async_trait]

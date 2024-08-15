@@ -1,7 +1,9 @@
+use core::fmt;
+
 use super::email::Email;
 
 #[async_trait::async_trait]
-pub trait EmailClient {
+pub trait EmailClient: fmt::Debug {
     async fn send_email(
         &self,
         recipient: &Email,

@@ -6,7 +6,7 @@ use crate::domain::{
     email_client::EmailClient,
 };
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct AppState<T: BannedTokenStore, U: UserStore, V: TwoFACodeStore, W: EmailClient> {
     pub banned_token_store: Arc<RwLock<T>>,
     pub user_store: Arc<RwLock<U>>,

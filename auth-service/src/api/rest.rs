@@ -120,6 +120,12 @@ impl IntoResponse for AuthAPIError {
             AuthAPIError::InvalidToken => {
                 (StatusCode::UNAUTHORIZED, "Invalid auth token".to_string())
             }
+            AuthAPIError::InvalidLoginAttemptId => {
+                (StatusCode::BAD_REQUEST, "Invalid auth id".to_string())
+            }
+            AuthAPIError::InvalidTwoFactorAuthCode => {
+                (StatusCode::BAD_REQUEST, "Invalid auth code".to_string())
+            }
         };
 
         let body = Json(ErrorResponse {

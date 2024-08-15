@@ -1,8 +1,9 @@
 use auth_proto::auth_service_client::AuthServiceClient;
 use auth_service::{
     domain::{
-        data_stores::{UserStore, UserStoreError},
+        data_stores::{BannedTokenStore, TwoFACodeStore, UserStore, UserStoreError},
         email::Email,
+        email_client::EmailClient,
         user::User,
     },
     services::{
@@ -75,7 +76,7 @@ impl RESTTestApp {
 
     pub async fn post_signup<Body: Serialize>(&self, body: &Body) -> reqwest::Response {
         let client_url = format!("{}/signup", &self.address);
-        println!("[RESTTestApp][post_signup] Client URL: {}", client_url);
+        println!("[RESTTestApp][post_signup] Client URL: {client_url}");
         self.client
             .post(&client_url)
             .json(body)
@@ -229,4 +230,15 @@ pub async fn create_app_with_logged_in_token() -> (RESTTestApp, String) {
     assert!(!cookie.value().is_empty());
     let token = cookie.value().to_string();
     (app, token)
+}
+
+pub fn print_app_state<T: BannedTokenStore, U: UserStore, V: TwoFACodeStore, W: EmailClient>(
+    app_state: &AppState<T, U, V, W>,
+    prefix: &str,
+) {
+    println!("\n------------ AppState ------------");
+    println!("{prefix} {:?}", app_state.banned_token_store);
+    println!("{prefix} {:?}", app_state.user_store);
+    println!("{prefix} {:?}", app_state.two_fa_code_store);
+    println!("----------------------------------\n");
 }

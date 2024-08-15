@@ -7,7 +7,9 @@ pub enum AuthAPIError {
     UserAlreadyExists,
     InvalidCredentials,
     InvalidEmail(String),
+    InvalidLoginAttemptId,
     InvalidPassword(String),
+    InvalidTwoFactorAuthCode,
     UserNotFound,
     UnexpectedError,
     MissingToken,
@@ -25,6 +27,10 @@ impl fmt::Display for AuthAPIError {
             AuthAPIError::UnexpectedError => write!(f, "Unexpected error occurred"),
             AuthAPIError::MissingToken => write!(f, "Missing auth token"),
             AuthAPIError::InvalidToken => write!(f, "Invalid auth token"),
+            AuthAPIError::InvalidLoginAttemptId => write!(f, "Invalid login attempt id"),
+            AuthAPIError::InvalidTwoFactorAuthCode => {
+                write!(f, "Invalid two factor authentication code")
+            }
         }
     }
 }
@@ -41,6 +47,12 @@ impl From<AuthAPIError> for tonic::Status {
             AuthAPIError::UnexpectedError => tonic::Status::internal(error.to_string()),
             AuthAPIError::MissingToken => tonic::Status::unauthenticated(error.to_string()),
             AuthAPIError::InvalidToken => tonic::Status::unauthenticated(error.to_string()),
+            AuthAPIError::InvalidLoginAttemptId => {
+                tonic::Status::unauthenticated(error.to_string())
+            }
+            AuthAPIError::InvalidTwoFactorAuthCode => {
+                tonic::Status::unauthenticated(error.to_string())
+            }
         }
     }
 }
