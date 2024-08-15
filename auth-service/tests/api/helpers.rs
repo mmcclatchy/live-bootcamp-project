@@ -116,6 +116,16 @@ impl RESTTestApp {
             .expect("[ERROR][RESTTestApp][post_verify_token] Failed to execute request.")
     }
 
+    pub async fn post_verify_2fa<Body: Serialize>(&self, body: &Body) -> reqwest::Response {
+        let client_url = format!("{}/verify-2fa", &self.address);
+        self.client
+            .post(client_url)
+            .json(body)
+            .send()
+            .await
+            .expect("[ERROR][RESTTestApp][post_verify_2fa] Failed to execute request.")
+    }
+
     pub async fn log_user_store(&self, fn_name: &str) {
         let user_store = self.app_state.user_store.read().await;
         println!("[{}] {:?}", fn_name, user_store);
