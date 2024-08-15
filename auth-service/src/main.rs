@@ -4,6 +4,7 @@ use auth_service::{
     services::{
         app_state::AppState, hashmap_banned_token_store::HashMapBannedTokenStore,
         hashmap_two_fa_code_store::HashMapTwoFACodeStore, hashmap_user_store::HashmapUserStore,
+        mock_email_client::MockEmailClient,
     },
     utils::constants::prod,
     GRPCApp, RESTApp,
@@ -29,7 +30,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let banned_token_store = HashMapBannedTokenStore::new();
     let user_store = HashmapUserStore::new();
     let two_fa_code_store = HashMapTwoFACodeStore::new();
-    let app_state = AppState::new_arc(banned_token_store, user_store, two_fa_code_store);
+    let email_client = MockEmailClient;
+    let app_state = AppState::new_arc(
+        banned_token_store,
+        user_store,
+        two_fa_code_store,
+        email_client,
+    );
 
     let address = prod::APP_GRPC_ADDRESS.to_string();
     let grpc_app = GRPCApp::new(app_state.clone(), address)

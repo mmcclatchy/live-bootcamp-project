@@ -19,6 +19,7 @@ use tower_http::{cors::CorsLayer, services::ServeDir, trace::TraceLayer};
 
 use crate::domain::{
     data_stores::{BannedTokenStore, TwoFACodeStore, UserStore},
+    email_client::EmailClient,
     error::AuthAPIError,
 };
 use crate::routes;
@@ -43,8 +44,9 @@ impl RESTApp {
         T: BannedTokenStore + Send + Sync + 'static,
         U: UserStore + Send + Sync + 'static,
         V: TwoFACodeStore + Send + Sync + 'static,
+        W: EmailClient + Send + Sync + 'static,
     >(
-        app_state: Arc<AppState<T, U, V>>,
+        app_state: Arc<AppState<T, U, V, W>>,
         address: String,
     ) -> Result<Self, Box<dyn Error>> {
         let allowed_origins = [

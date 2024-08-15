@@ -8,6 +8,7 @@ use log::info;
 use serde::{Deserialize, Serialize};
 
 use crate::domain::data_stores::{BannedTokenStore, LoginAttemptId, TwoFACode, TwoFACodeStore};
+use crate::domain::email_client::EmailClient;
 use crate::domain::{
     data_stores::UserStore, email::Email, error::AuthAPIError, password::Password,
 };
@@ -34,8 +35,8 @@ pub enum LoginResponse {
     TwoFactorAuth(TwoFactorAuthResponse),
 }
 
-pub async fn post<T: BannedTokenStore, U: UserStore, V: TwoFACodeStore>(
-    State(state): State<Arc<AppState<T, U, V>>>,
+pub async fn post<T: BannedTokenStore, U: UserStore, V: TwoFACodeStore, W: EmailClient>(
+    State(state): State<Arc<AppState<T, U, V, W>>>,
     jar: CookieJar,
     Json(payload): Json<LoginRequest>,
 ) -> Result<(CookieJar, impl IntoResponse), AuthAPIError> {
@@ -68,9 +69,9 @@ async fn handle_no_2fa(
     ))
 }
 
-async fn handle_2fa<T: BannedTokenStore, U: UserStore, V: TwoFACodeStore>(
+async fn handle_2fa<T: BannedTokenStore, U: UserStore, V: TwoFACodeStore, W: EmailClient>(
     email: &Email,
-    state: &AppState<T, U, V>,
+    state: &AppState<T, U, V, W>,
     jar: CookieJar,
 ) -> Result<(CookieJar, (StatusCode, Json<LoginResponse>)), AuthAPIError> {
     let login_attempt_id = LoginAttemptId::default();
@@ -79,7 +80,7 @@ async fn handle_2fa<T: BannedTokenStore, U: UserStore, V: TwoFACodeStore>(
     let email = (*email).clone();
     let mut two_fa_code_store = state.two_fa_code_store.write().await;
     two_fa_code_store
-        .add_code(email, login_attempt_id.clone(), two_fa_code)
+        .add_code(email.clone(), login_attempt_id.clone(), two_fa_code.clone())
         .await
         .map_err(|_| AuthAPIError::UnexpectedError)?;
 

@@ -5,6 +5,7 @@ use serde::Deserialize;
 
 use crate::domain::{
     data_stores::{BannedTokenStore, TwoFACodeStore, UserStore},
+    email_client::EmailClient,
     error::AuthAPIError,
 };
 use crate::services::app_state::AppState;
@@ -15,8 +16,8 @@ pub struct VerifyTokenRequest {
     token: String,
 }
 
-pub async fn post<T: BannedTokenStore, U: UserStore, V: TwoFACodeStore>(
-    State(state): State<Arc<AppState<T, U, V>>>,
+pub async fn post<T: BannedTokenStore, U: UserStore, V: TwoFACodeStore, W: EmailClient>(
+    State(state): State<Arc<AppState<T, U, V, W>>>,
     Json(request): Json<VerifyTokenRequest>,
 ) -> impl IntoResponse {
     match validate_token(state.banned_token_store.clone(), &request.token).await {

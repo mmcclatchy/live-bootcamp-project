@@ -5,13 +5,14 @@ use axum_extra::extract::{cookie, CookieJar};
 
 use crate::domain::{
     data_stores::{BannedTokenStore, TwoFACodeStore, UserStore},
+    email_client::EmailClient,
     error::AuthAPIError,
 };
 use crate::services::app_state::AppState;
 use crate::utils::{auth::validate_token, constants::JWT_COOKIE_NAME};
 
-pub async fn post<T: BannedTokenStore, U: UserStore, V: TwoFACodeStore>(
-    State(state): State<Arc<AppState<T, U, V>>>,
+pub async fn post<T: BannedTokenStore, U: UserStore, V: TwoFACodeStore, W: EmailClient>(
+    State(state): State<Arc<AppState<T, U, V, W>>>,
     jar: CookieJar,
 ) -> Result<(CookieJar, impl IntoResponse), AuthAPIError> {
     let cookie = match jar.get(JWT_COOKIE_NAME) {

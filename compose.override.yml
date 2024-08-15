@@ -3,7 +3,7 @@ services:
     build:
       context: ./app-service
     environment:
-      AUTH_SERVICE_URL: http://localhost/auth
+      REST_AUTH_SERVICE_URL: http://localhost/auth
       AUTH_SERVICE_HOST_NAME: http://auth-service:50051
     ports:
       - "8000:8000"

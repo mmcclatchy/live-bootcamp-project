@@ -6,6 +6,7 @@ use log::info;
 use serde::{Deserialize, Serialize};
 
 use crate::domain::data_stores::{BannedTokenStore, TwoFACodeStore, UserStoreError};
+use crate::domain::email_client::EmailClient;
 use crate::domain::{
     data_stores::UserStore, email::Email, error::AuthAPIError, password::Password, user::User,
 };
@@ -24,8 +25,8 @@ pub struct SignupResponse {
     message: String,
 }
 
-pub async fn post<T: BannedTokenStore, U: UserStore, V: TwoFACodeStore>(
-    State(state): State<Arc<AppState<T, U, V>>>,
+pub async fn post<T: BannedTokenStore, U: UserStore, V: TwoFACodeStore, W: EmailClient>(
+    State(state): State<Arc<AppState<T, U, V, W>>>,
     Json(payload): Json<SignupRequest>,
 ) -> Result<(StatusCode, Json<SignupResponse>), AuthAPIError> {
     info!("[REST][POST][/signup] Received request: {:?}", payload);
