@@ -89,6 +89,19 @@ async fn handle_2fa<T: BannedTokenStore, U: UserStore, V: TwoFACodeStore, W: Ema
         login_attempt_id: login_attempt_id.to_string(),
     };
 
+    let email_client = state.email_client.read().await;
+    if email_client
+        .send_email(
+            &email,
+            "Rust Live Boot-camp Authentication Code",
+            two_fa_code.as_ref(),
+        )
+        .await
+        .is_err()
+    {
+        return Err(AuthAPIError::UnexpectedError);
+    };
+
     Ok((
         jar,
         (
