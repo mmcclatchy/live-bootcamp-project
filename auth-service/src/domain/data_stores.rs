@@ -7,6 +7,8 @@ use super::user::User;
 
 use crate::domain::{email::Email, password::Password};
 
+//************************  Traits  ************************//
+
 #[async_trait::async_trait]
 pub trait UserStore: Clone + Send + Sync + 'static + fmt::Debug {
     async fn add_user(&mut self, user: User) -> Result<(), UserStoreError>;
@@ -23,21 +25,6 @@ pub trait BannedTokenStore: Clone + Send + Sync + 'static + fmt::Debug {
     async fn add_token(&mut self, token: String) -> Result<(), TokenStoreError>;
     async fn check_token(&self, token: String) -> Result<(), TokenStoreError>;
     async fn expire_tokens(&mut self) -> Result<(), TokenStoreError>;
-}
-
-#[derive(Debug, PartialEq)]
-pub enum UserStoreError {
-    UserAlreadyExists,
-    UserNotFound,
-    InvalidCredentials,
-    UnexpectedError,
-}
-
-#[derive(Debug, PartialEq)]
-pub enum TokenStoreError {
-    BannedToken,
-    InvalidToken,
-    UnexpectedError,
 }
 
 #[async_trait::async_trait]
@@ -57,11 +44,42 @@ pub trait TwoFACodeStore: fmt::Debug {
     ) -> Result<(LoginAttemptId, TwoFACode), TwoFACodeStoreError>;
 }
 
+#[async_trait::async_trait]
+pub trait PasswordResetTokenStore: Clone + Send + Sync + 'static + fmt::Debug {
+    async fn add_token(&mut self, email: Email, token: String) -> Result<(), TokenStoreError>;
+    async fn check_token(&self, email: &Email) -> Result<String, TokenStoreError>;
+    async fn remove_tokens(&mut self, email: &Email) -> Result<(), TokenStoreError>;
+}
+
+//************************  Traits  ************************//
+
+//************************  Enums   ************************//
+
+#[derive(Debug, PartialEq)]
+pub enum UserStoreError {
+    UserAlreadyExists,
+    UserNotFound,
+    InvalidCredentials,
+    UnexpectedError,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum TokenStoreError {
+    BannedToken,
+    InvalidToken,
+    TokenNotFound,
+    UnexpectedError,
+}
+
 #[derive(Debug, PartialEq)]
 pub enum TwoFACodeStoreError {
     LoginAttemptIdNotFound,
     UnexpectedError,
 }
+
+//************************  Enums   ************************//
+
+//***********************  Structs  ************************//
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct LoginAttemptId(String);
@@ -124,6 +142,10 @@ impl fmt::Display for TwoFACode {
         write!(f, "{}", self.0)
     }
 }
+
+//***********************  Structs  ************************//
+
+//***********************   Tests   ************************//
 
 #[cfg(test)]
 mod login_attempt_id_tests {
