@@ -60,6 +60,11 @@ impl RESTApp {
             .route("/logout", post(routes::logout::post))
             .route("/verify-2fa", post(routes::verify_2fa::post))
             .route("/verify-token", post(routes::verify_token::post))
+            .route(
+                "/initiate-password-reset",
+                post(routes::initiate_password_reset::post),
+            )
+            .route("/reset-password", post(routes::reset_password::post))
             .with_state(app_state)
             .layer(cors);
 
