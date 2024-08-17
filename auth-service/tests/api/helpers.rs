@@ -1,14 +1,17 @@
 use auth_proto::auth_service_client::AuthServiceClient;
 use auth_service::{
     domain::{
-        data_stores::{BannedTokenStore, TwoFACodeStore, UserStore, UserStoreError},
+        data_stores::{UserStore, UserStoreError},
         email::Email,
-        email_client::EmailClient,
         user::User,
     },
     services::{
-        app_state::AppState, hashmap_banned_token_store::HashMapBannedTokenStore,
-        hashmap_two_fa_code_store::HashMapTwoFACodeStore, hashmap_user_store::HashmapUserStore,
+        app_state::{AppServices, AppState},
+        concrete_app_services::{MemoryAppStateType, MemoryServices},
+        hashmap_banned_token_store::HashMapBannedTokenStore,
+        hashmap_password_reset_token_store::HashMapPasswordResetTokenStore,
+        hashmap_two_fa_code_store::HashMapTwoFACodeStore,
+        hashmap_user_store::HashmapUserStore,
         mock_email_client::MockEmailClient,
     },
     utils::constants::{test, JWT_COOKIE_NAME},
@@ -27,23 +30,19 @@ pub struct RESTTestApp {
     pub address: String,
     pub cookie_jar: Arc<Jar>,
     pub client: reqwest::Client,
-    pub app_state: Arc<
-        AppState<HashMapBannedTokenStore, HashmapUserStore, HashMapTwoFACodeStore, MockEmailClient>,
-    >,
+    pub app_state: Arc<AppState<MemoryServices>>,
 }
 
 impl RESTTestApp {
     pub async fn new() -> Self {
-        let banned_token_store = HashMapBannedTokenStore::new();
         let user_store = HashmapUserStore::new();
         let user_store_id = user_store.get_id();
-        let two_factor_code_store = HashMapTwoFACodeStore::new();
-        let email_client = MockEmailClient;
         let app_state = AppState::new_arc(
-            banned_token_store,
+            HashMapBannedTokenStore::new(),
             user_store,
-            two_factor_code_store,
-            email_client,
+            HashMapTwoFACodeStore::new(),
+            MockEmailClient,
+            HashMapPasswordResetTokenStore::new(),
         );
         let address = String::from(test::APP_REST_ADDRESS);
 
@@ -136,23 +135,19 @@ impl RESTTestApp {
 pub struct GRPCTestApp {
     pub address: String,
     pub client: AuthServiceClient<Channel>,
-    pub app_state: Arc<
-        AppState<HashMapBannedTokenStore, HashmapUserStore, HashMapTwoFACodeStore, MockEmailClient>,
-    >,
+    pub app_state: MemoryAppStateType,
 }
 
 impl GRPCTestApp {
     pub async fn new() -> Self {
-        let banned_token_store = HashMapBannedTokenStore::new();
         let user_store = HashmapUserStore::new();
         let user_store_id = user_store.get_id();
-        let two_factor_code_store = HashMapTwoFACodeStore::new();
-        let email_client = MockEmailClient;
         let app_state = Arc::new(AppState::new(
-            banned_token_store,
+            HashMapBannedTokenStore::new(),
             user_store,
-            two_factor_code_store,
-            email_client,
+            HashMapTwoFACodeStore::new(),
+            MockEmailClient,
+            HashMapPasswordResetTokenStore::new(),
         ));
         let address = String::from(test::APP_GRPC_ADDRESS);
 
@@ -232,13 +227,11 @@ pub async fn create_app_with_logged_in_token() -> (RESTTestApp, String) {
     (app, token)
 }
 
-pub fn print_app_state<T: BannedTokenStore, U: UserStore, V: TwoFACodeStore, W: EmailClient>(
-    app_state: &AppState<T, U, V, W>,
-    prefix: &str,
-) {
+pub fn print_app_state<S: AppServices>(app_state: &AppState<S>, prefix: &str) {
     println!("\n------------ AppState ------------");
     println!("{prefix} {:?}", app_state.banned_token_store);
     println!("{prefix} {:?}", app_state.user_store);
     println!("{prefix} {:?}", app_state.two_fa_code_store);
+    println!("{prefix} {:?}", app_state.password_reset_token_store);
     println!("----------------------------------\n");
 }

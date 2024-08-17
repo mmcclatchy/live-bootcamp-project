@@ -5,12 +5,14 @@ use axum::{extract::State, Json};
 use log::info;
 use serde::{Deserialize, Serialize};
 
-use crate::domain::data_stores::{BannedTokenStore, TwoFACodeStore, UserStoreError};
-use crate::domain::email_client::EmailClient;
 use crate::domain::{
-    data_stores::UserStore, email::Email, error::AuthAPIError, password::Password, user::User,
+    data_stores::{UserStore, UserStoreError},
+    email::Email,
+    error::AuthAPIError,
+    password::Password,
+    user::User,
 };
-use crate::services::app_state::AppState;
+use crate::services::app_state::{AppServices, AppState};
 
 #[derive(Deserialize, Debug)]
 pub struct SignupRequest {
@@ -25,8 +27,8 @@ pub struct SignupResponse {
     message: String,
 }
 
-pub async fn post<T: BannedTokenStore, U: UserStore, V: TwoFACodeStore, W: EmailClient>(
-    State(state): State<Arc<AppState<T, U, V, W>>>,
+pub async fn post<S: AppServices>(
+    State(state): State<Arc<AppState<S>>>,
     Json(payload): Json<SignupRequest>,
 ) -> Result<(StatusCode, Json<SignupResponse>), AuthAPIError> {
     info!("[REST][POST][/signup] Received request: {:?}", payload);

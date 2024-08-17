@@ -1,8 +1,5 @@
-use std::{fmt::format, time::Duration};
-
 use rstest::rstest;
 use serde_json::{json, Value};
-use tokio::time::timeout;
 use uuid::Uuid;
 
 use auth_service::{
@@ -11,7 +8,7 @@ use auth_service::{
     utils::constants::JWT_COOKIE_NAME,
 };
 
-use crate::helpers::{print_app_state, RESTTestApp};
+use crate::helpers::RESTTestApp;
 
 const LOG_PREFIX: &str = "[TEST][rest_verify_2fa]";
 const TEST_EMAIL: &str = "test@example.com";

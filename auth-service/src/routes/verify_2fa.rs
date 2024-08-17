@@ -6,12 +6,11 @@ use serde::{Deserialize, Serialize};
 use tokio::time::timeout;
 
 use crate::domain::{
-    data_stores::{BannedTokenStore, LoginAttemptId, TwoFACode, TwoFACodeStore, UserStore},
+    data_stores::{LoginAttemptId, TwoFACode, TwoFACodeStore},
     email::Email,
-    email_client::EmailClient,
     error::AuthAPIError,
 };
-use crate::services::app_state::AppState;
+use crate::services::app_state::{AppServices, AppState};
 use crate::utils::auth::generate_auth_cookie;
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -23,8 +22,8 @@ pub struct Verify2FARequest {
     two_factor_code: String,
 }
 
-pub async fn post<T: BannedTokenStore, U: UserStore, V: TwoFACodeStore, W: EmailClient>(
-    State(state): State<Arc<AppState<T, U, V, W>>>,
+pub async fn post<S: AppServices>(
+    State(state): State<Arc<AppState<S>>>,
     jar: CookieJar,
     Json(payload): Json<Verify2FARequest>,
 ) -> Result<(CookieJar, impl IntoResponse), AuthAPIError> {

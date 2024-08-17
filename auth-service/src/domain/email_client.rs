@@ -3,7 +3,7 @@ use core::fmt;
 use super::email::Email;
 
 #[async_trait::async_trait]
-pub trait EmailClient: fmt::Debug {
+pub trait EmailClient: Clone + Send + Sync + 'static + fmt::Debug {
     async fn send_email(
         &self,
         recipient: &Email,

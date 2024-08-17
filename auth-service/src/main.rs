@@ -2,7 +2,9 @@ use std::io::Write;
 
 use auth_service::{
     services::{
-        app_state::AppState, hashmap_banned_token_store::HashMapBannedTokenStore,
+        app_state::AppState, concrete_app_services::MemoryAppStateType,
+        hashmap_banned_token_store::HashMapBannedTokenStore,
+        hashmap_password_reset_token_store::HashMapPasswordResetTokenStore,
         hashmap_two_fa_code_store::HashMapTwoFACodeStore, hashmap_user_store::HashmapUserStore,
         mock_email_client::MockEmailClient,
     },
@@ -27,15 +29,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     std::io::stderr().flush().unwrap();
     info!("Starting auth service");
 
-    let banned_token_store = HashMapBannedTokenStore::new();
-    let user_store = HashmapUserStore::new();
-    let two_fa_code_store = HashMapTwoFACodeStore::new();
-    let email_client = MockEmailClient;
-    let app_state = AppState::new_arc(
-        banned_token_store,
-        user_store,
-        two_fa_code_store,
-        email_client,
+    let app_state: MemoryAppStateType = AppState::new_arc(
+        HashMapBannedTokenStore::new(),
+        HashmapUserStore::new(),
+        HashMapTwoFACodeStore::new(),
+        MockEmailClient,
+        HashMapPasswordResetTokenStore::new(),
     );
 
     let address = prod::APP_GRPC_ADDRESS.to_string();

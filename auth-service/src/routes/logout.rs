@@ -3,16 +3,12 @@ use std::sync::Arc;
 use axum::{extract::State, http::StatusCode, response::IntoResponse};
 use axum_extra::extract::{cookie, CookieJar};
 
-use crate::domain::{
-    data_stores::{BannedTokenStore, TwoFACodeStore, UserStore},
-    email_client::EmailClient,
-    error::AuthAPIError,
-};
-use crate::services::app_state::AppState;
+use crate::domain::{data_stores::BannedTokenStore, error::AuthAPIError};
+use crate::services::app_state::{AppServices, AppState};
 use crate::utils::{auth::validate_token, constants::JWT_COOKIE_NAME};
 
-pub async fn post<T: BannedTokenStore, U: UserStore, V: TwoFACodeStore, W: EmailClient>(
-    State(state): State<Arc<AppState<T, U, V, W>>>,
+pub async fn post<S: AppServices>(
+    State(state): State<Arc<AppState<S>>>,
     jar: CookieJar,
 ) -> Result<(CookieJar, impl IntoResponse), AuthAPIError> {
     let cookie = match jar.get(JWT_COOKIE_NAME) {

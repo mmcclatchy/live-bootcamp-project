@@ -4,8 +4,6 @@ use std::{error::Error, net::SocketAddr};
 use log::info;
 use tonic::{Request, Response, Status};
 
-use crate::domain::data_stores::{BannedTokenStore, TwoFACodeStore};
-use crate::domain::email_client::EmailClient;
 use crate::domain::{
     data_stores::{UserStore, UserStoreError},
     email::Email,
@@ -13,32 +11,24 @@ use crate::domain::{
     password::Password,
     user::User,
 };
-use crate::services::app_state::AppState;
+use crate::services::app_state::{AppServices, AppState};
 use auth_proto::{
     auth_service_server::{AuthService, AuthServiceServer},
     SignupRequest, SignupResponse, VerifyTokenRequest, VerifyTokenResponse,
 };
 
-pub struct GRPCAuthService<T: BannedTokenStore, U: UserStore, V: TwoFACodeStore, W: EmailClient> {
-    pub app_state: Arc<AppState<T, U, V, W>>,
+pub struct GRPCAuthService<S: AppServices + 'static> {
+    pub app_state: Arc<AppState<S>>,
 }
 
-impl<T: BannedTokenStore, U: UserStore, V: TwoFACodeStore, W: EmailClient>
-    GRPCAuthService<T, U, V, W>
-{
-    pub fn new(app_state: Arc<AppState<T, U, V, W>>) -> Self {
+impl<S: AppServices + 'static> GRPCAuthService<S> {
+    pub fn new(app_state: Arc<AppState<S>>) -> Self {
         Self { app_state }
     }
 }
 
 #[tonic::async_trait]
-impl<
-        T: BannedTokenStore + Send + Sync + 'static,
-        U: UserStore + Send + Sync + 'static,
-        V: TwoFACodeStore + Send + Sync + 'static,
-        W: EmailClient + Send + Sync + 'static,
-    > AuthService for GRPCAuthService<T, U, V, W>
-{
+impl<S: AppServices + 'static> AuthService for GRPCAuthService<S> {
     async fn signup(
         &self,
         request: Request<SignupRequest>,
@@ -74,27 +64,13 @@ impl<
     }
 }
 
-pub struct GRPCApp<
-    T: BannedTokenStore + Send + Sync + 'static,
-    U: UserStore + Send + Sync + 'static,
-    V: TwoFACodeStore + Send + Sync + 'static,
-    W: EmailClient + Send + Sync + 'static,
-> {
+pub struct GRPCApp<S: AppServices + 'static> {
     pub address: SocketAddr,
-    server: AuthServiceServer<GRPCAuthService<T, U, V, W>>,
+    server: AuthServiceServer<GRPCAuthService<S>>,
 }
 
-impl<
-        T: BannedTokenStore + Send + Sync + 'static,
-        U: UserStore + Send + Sync + 'static,
-        V: TwoFACodeStore + Send + Sync + 'static,
-        W: EmailClient + Send + Sync + 'static,
-    > GRPCApp<T, U, V, W>
-{
-    pub async fn new(
-        app_state: Arc<AppState<T, U, V, W>>,
-        address: String,
-    ) -> Result<Self, Box<dyn Error>> {
+impl<S: AppServices + 'static> GRPCApp<S> {
+    pub async fn new(app_state: Arc<AppState<S>>, address: String) -> Result<Self, Box<dyn Error>> {
         let listener = tokio::net::TcpListener::bind(&address).await?;
         let address = listener.local_addr()?.to_string();
         #[allow(clippy::expect_fun_call)]

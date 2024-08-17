@@ -7,12 +7,12 @@ use axum_extra::extract::CookieJar;
 use log::info;
 use serde::{Deserialize, Serialize};
 
-use crate::domain::data_stores::{BannedTokenStore, LoginAttemptId, TwoFACode, TwoFACodeStore};
+use crate::domain::data_stores::{LoginAttemptId, TwoFACode, TwoFACodeStore};
 use crate::domain::email_client::EmailClient;
 use crate::domain::{
     data_stores::UserStore, email::Email, error::AuthAPIError, password::Password,
 };
-use crate::services::app_state::AppState;
+use crate::services::app_state::{AppServices, AppState};
 use crate::utils::auth::generate_auth_cookie;
 
 #[derive(Deserialize, Debug)]
@@ -35,8 +35,8 @@ pub enum LoginResponse {
     TwoFactorAuth(TwoFactorAuthResponse),
 }
 
-pub async fn post<T: BannedTokenStore, U: UserStore, V: TwoFACodeStore, W: EmailClient>(
-    State(state): State<Arc<AppState<T, U, V, W>>>,
+pub async fn post<S: AppServices>(
+    State(state): State<Arc<AppState<S>>>,
     jar: CookieJar,
     Json(payload): Json<LoginRequest>,
 ) -> Result<(CookieJar, impl IntoResponse), AuthAPIError> {
@@ -69,9 +69,9 @@ async fn handle_no_2fa(
     ))
 }
 
-async fn handle_2fa<T: BannedTokenStore, U: UserStore, V: TwoFACodeStore, W: EmailClient>(
+async fn handle_2fa<S: AppServices>(
     email: &Email,
-    state: &AppState<T, U, V, W>,
+    state: &AppState<S>,
     jar: CookieJar,
 ) -> Result<(CookieJar, (StatusCode, Json<LoginResponse>)), AuthAPIError> {
     let login_attempt_id = LoginAttemptId::default();

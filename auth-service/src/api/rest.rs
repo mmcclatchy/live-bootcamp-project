@@ -17,13 +17,9 @@ use log::info;
 use serde::{Deserialize, Serialize};
 use tower_http::{cors::CorsLayer, services::ServeDir, trace::TraceLayer};
 
-use crate::domain::{
-    data_stores::{BannedTokenStore, TwoFACodeStore, UserStore},
-    email_client::EmailClient,
-    error::AuthAPIError,
-};
+use crate::domain::error::AuthAPIError;
 use crate::routes;
-use crate::services::app_state::AppState;
+use crate::services::app_state::{AppServices, AppState};
 
 async fn log_request(req: Request<Body>, next: Next) -> impl IntoResponse {
     info!("Received request: {} {}", req.method(), req.uri());
@@ -40,13 +36,8 @@ pub struct RESTApp {
 }
 
 impl RESTApp {
-    pub async fn new<
-        T: BannedTokenStore + Send + Sync + 'static,
-        U: UserStore + Send + Sync + 'static,
-        V: TwoFACodeStore + Send + Sync + 'static,
-        W: EmailClient + Send + Sync + 'static,
-    >(
-        app_state: Arc<AppState<T, U, V, W>>,
+    pub async fn new<S: AppServices + 'static>(
+        app_state: Arc<AppState<S>>,
         address: String,
     ) -> Result<Self, Box<dyn Error>> {
         let allowed_origins = [

@@ -28,7 +28,7 @@ pub trait BannedTokenStore: Clone + Send + Sync + 'static + fmt::Debug {
 }
 
 #[async_trait::async_trait]
-pub trait TwoFACodeStore: fmt::Debug {
+pub trait TwoFACodeStore: Clone + Send + Sync + 'static + fmt::Debug {
     async fn add_code(
         &mut self,
         email: Email,
@@ -47,8 +47,8 @@ pub trait TwoFACodeStore: fmt::Debug {
 #[async_trait::async_trait]
 pub trait PasswordResetTokenStore: Clone + Send + Sync + 'static + fmt::Debug {
     async fn add_token(&mut self, email: Email, token: String) -> Result<(), TokenStoreError>;
-    async fn check_token(&self, email: &Email) -> Result<String, TokenStoreError>;
-    async fn remove_tokens(&mut self, email: &Email) -> Result<(), TokenStoreError>;
+    async fn get_token(&self, email: &Email) -> Result<String, TokenStoreError>;
+    async fn remove_token(&mut self, email: &Email) -> Result<(), TokenStoreError>;
 }
 
 //************************  Traits  ************************//
