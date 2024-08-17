@@ -6,7 +6,7 @@ use auth_service::utils::{
 use serde_json::json;
 
 #[tokio::test]
-async fn initiate_password_reset_works_for_existing_email() {
+async fn initiate_password_reset_should_return_200_if_existing_email() {
     let app = RESTTestApp::new().await;
     let email = get_random_email();
 
@@ -18,11 +18,20 @@ async fn initiate_password_reset_works_for_existing_email() {
     let signup_response = app.post_signup(&signup_body).await;
     assert_eq!(signup_response.status(), 201);
 
-    let reset_body = json!({ "email": email });
-    let reset_response = app.post_initiate_password_reset(&reset_body).await;
-    assert_eq!(reset_response.status(), 200);
+    let init_reset_body = json!({ "email": email });
+    let initiate_reset_response = app.post_initiate_password_reset(&init_reset_body).await;
+    println!(
+        "[TEST][initiate_password_reset_should_return_200_if_existing_email] {:?}",
+        initiate_reset_response
+    );
 
-    let response_body: serde_json::Value = reset_response.json().await.unwrap();
+    assert_eq!(initiate_reset_response.status(), 200);
+
+    let response_body: serde_json::Value = initiate_reset_response.json().await.unwrap();
+    println!(
+        "[TEST][initiate_password_reset_should_return_200_if_existing_email] {}",
+        response_body
+    );
     assert_eq!(
         response_body["message"],
         "If the email exists, a password reset link has been sent."
@@ -30,15 +39,23 @@ async fn initiate_password_reset_works_for_existing_email() {
 }
 
 #[tokio::test]
-async fn initiate_password_reset_returns_same_message_for_non_existing_email() {
+async fn initiate_password_reset_should_return_200_if_non_existing_email() {
     let app = RESTTestApp::new().await;
     let non_existing_email = get_random_email();
 
     let reset_body = json!({ "email": non_existing_email });
-    let reset_response = app.post_initiate_password_reset(&reset_body).await;
-    assert_eq!(reset_response.status(), 200);
+    let initiate_reset_response = app.post_initiate_password_reset(&reset_body).await;
+    println!(
+        "[TEST][initiate_password_reset_should_return_200_if_non_existing_email] {:?}",
+        initiate_reset_response
+    );
+    assert_eq!(initiate_reset_response.status(), 200);
 
-    let response_body: serde_json::Value = reset_response.json().await.unwrap();
+    let response_body: serde_json::Value = initiate_reset_response.json().await.unwrap();
+    println!(
+        "[TEST][initiate_password_reset_should_return_200_if_non_existing_email] {}",
+        response_body
+    );
     assert_eq!(
         response_body["message"],
         "If the email exists, a password reset link has been sent."
@@ -46,14 +63,22 @@ async fn initiate_password_reset_returns_same_message_for_non_existing_email() {
 }
 
 #[tokio::test]
-async fn initiate_password_reset_sends_400_with_invalid_email() {
+async fn initiate_password_reset_should_return_400_if_invalid_email() {
     let app = RESTTestApp::new().await;
     let reset_body = json!({ "email": "not-an-email" });
 
-    let reset_response = app.post_initiate_password_reset(&reset_body).await;
-    assert_eq!(reset_response.status(), 400);
+    let initiate_reset_response = app.post_initiate_password_reset(&reset_body).await;
+    println!(
+        "[TEST][initiate_password_reset_should_return_200_if_non_existing_email] {:?}",
+        initiate_reset_response
+    );
+    assert_eq!(initiate_reset_response.status(), 400);
 
-    let response_body: serde_json::Value = reset_response.json().await.unwrap();
+    let response_body: serde_json::Value = initiate_reset_response.json().await.unwrap();
+    println!(
+        "[TEST][initiate_password_reset_should_return_200_if_non_existing_email] {}",
+        response_body
+    );
     assert_eq!(response_body["error"], "Invalid email address");
 }
 
@@ -68,6 +93,10 @@ async fn reset_password_should_return_200_with_cookie_if_valid_token() {
         "requires2FA": false
     });
     let signup_response = app.post_signup(&signup_body).await;
+    println!(
+        "[TEST][initiate_password_reset_should_return_400_if_invalid_email] {:?}",
+        signup_response
+    );
     assert_eq!(signup_response.status(), 201);
 
     let reset_init_body = json!({ "email": email });
@@ -81,9 +110,17 @@ async fn reset_password_should_return_200_with_cookie_if_valid_token() {
         "new_password": "NewP@ssw0rd123"
     });
     let reset_response = app.post_reset_password(&reset_body).await;
+    println!(
+        "[TEST][initiate_password_reset_should_return_400_if_invalid_email] {:?}",
+        reset_response
+    );
     assert_eq!(reset_response.status(), 200);
 
     let response_body: serde_json::Value = reset_response.json().await.unwrap();
+    println!(
+        "[TEST][initiate_password_reset_should_return_400_if_invalid_email] {}",
+        response_body
+    );
     assert_eq!(
         response_body["message"],
         "Password has been reset successfully.".to_string()
@@ -94,21 +131,33 @@ async fn reset_password_should_return_200_with_cookie_if_valid_token() {
         "password": "NewP@ssw0rd123"
     });
     let login_response = app.post_login(&login_body).await;
+    println!(
+        "[TEST][initiate_password_reset_should_return_400_if_invalid_email] {:?}",
+        login_response
+    );
     assert_eq!(login_response.status(), 200);
 
     let auth_cookie = login_response
         .cookies()
         .find(|cookie| cookie.name() == JWT_COOKIE_NAME)
         .expect(
-            "[ERROR][should_return_200_if_valid_credentials_and_2fs_disabled] No auth cookie found",
+            "[ERROR][initiate_password_reset_should_return_400_if_invalid_email] No auth cookie found",
         );
 
     let token = auth_cookie.value();
+    println!(
+        "[TEST][initiate_password_reset_should_return_400_if_invalid_email] {}",
+        token
+    );
     assert!(!token.is_empty());
 
     let claims = validate_token(app.app_state.banned_token_store.clone(), token)
         .await
         .unwrap();
+    println!(
+        "[TEST][initiate_password_reset_should_return_400_if_invalid_email] {:?}",
+        claims
+    );
     assert_eq!(claims.sub, email);
     assert_eq!(claims.purpose, TokenPurpose::Auth);
 }
@@ -122,9 +171,17 @@ async fn reset_password_should_return_401_if_invalid_token_structure() {
     });
 
     let reset_response = app.post_reset_password(&reset_body).await;
+    println!(
+        "[TEST][reset_password_should_return_401_if_invalid_token_structure] {:?}",
+        reset_response
+    );
     assert_eq!(reset_response.status(), 401);
 
     let response_body: serde_json::Value = reset_response.json().await.unwrap();
+    println!(
+        "[TEST][reset_password_should_return_401_if_invalid_token_structure] {:?}",
+        response_body
+    );
     assert_eq!(response_body["error"], "Invalid auth token");
 }
 
@@ -139,6 +196,10 @@ async fn reset_password_should_return_400_if_weak_password() {
         "requires2FA": false
     });
     let signup_response = app.post_signup(&signup_body).await;
+    println!(
+        "[TEST][reset_password_should_return_400_if_weak_password] {:?}",
+        signup_response
+    );
     assert_eq!(signup_response.status(), 201);
 
     let reset_init_body = json!({

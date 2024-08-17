@@ -1,22 +1,28 @@
 use core::fmt;
-use std::sync::{Arc, LazyLock};
+use std::{env as std_env, sync::Arc};
 
 use axum::{extract::State, Json};
+use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 
-use crate::domain::{
-    data_stores::{PasswordResetTokenStore, UserStore},
-    email::Email,
-    email_client::EmailClient,
-    error::AuthAPIError,
-};
 use crate::services::app_state::{AppServices, AppState};
 use crate::utils::auth::generate_password_reset_token;
+use crate::{
+    domain::{
+        data_stores::{PasswordResetTokenStore, UserStore},
+        email::Email,
+        email_client::EmailClient,
+        error::AuthAPIError,
+    },
+    utils::constants::env,
+};
 
-static INITIATE_PASSWORD_RESPONSE: LazyLock<InitiatePasswordResetResponse> =
-    LazyLock::new(|| InitiatePasswordResetResponse {
-        message: "If the email exists, a password reset link has been sent.".to_string(),
-    });
+lazy_static! {
+    static ref INITIATE_PASSWORD_RESPONSE: InitiatePasswordResetResponse =
+        InitiatePasswordResetResponse {
+            message: "If the email exists, a password reset link has been sent.".to_string(),
+        };
+}
 
 #[derive(Debug, Deserialize)]
 pub struct InitiatePasswordResetRequest {
@@ -54,9 +60,14 @@ pub async fn post<'a, S: AppServices>(
         .await
         .map_err(|_| AuthAPIError::UnexpectedError)?;
 
+    let auth_base_url = match std_env::var(env::REST_AUTH_SERVICE_URL_ENV_VAR) {
+        Ok(auth_base_url) => auth_base_url,
+        Err(_) => String::from("http://localhost/auth"),
+    };
+    let email_content = format!("{auth_base_url}/reset-password?token={token}");
     state
         .email_client
-        .send_email(&email, "Password Reset Link", &token)
+        .send_email(&email, "Password Reset Link", &email_content)
         .await
         .map_err(|_| AuthAPIError::UnexpectedError)?;
 

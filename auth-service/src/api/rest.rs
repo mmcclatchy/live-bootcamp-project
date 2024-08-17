@@ -8,7 +8,7 @@ use axum::{
     http::StatusCode,
     middleware::{from_fn, Next},
     response::{IntoResponse, Response},
-    routing::post,
+    routing::{get, post},
     serve::Serve,
     Json, Router,
 };
@@ -65,6 +65,7 @@ impl RESTApp {
                 post(routes::initiate_password_reset::post),
             )
             .route("/reset-password", post(routes::reset_password::post))
+            .route("/reset-password", get(routes::reset_password::get))
             .with_state(app_state)
             .layer(cors);
 

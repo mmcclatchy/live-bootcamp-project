@@ -1,5 +1,6 @@
 use std::{fmt, sync::Arc};
 
+use axum::response::{Html, IntoResponse};
 use axum::{extract::State, Json};
 use axum_extra::extract::CookieJar;
 use hyper::StatusCode;
@@ -31,6 +32,10 @@ impl fmt::Display for ResetPasswordResponse {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.message)
     }
+}
+
+pub async fn get() -> impl IntoResponse {
+    Html(include_str!("../../assets/index.html"))
 }
 
 pub async fn post<S: AppServices>(

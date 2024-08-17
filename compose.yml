@@ -27,9 +27,10 @@ services:
       - "3000:3000"
       - "50051:50051"
     environment:
-      - RUST_LOG=info
-      - RUST_BACKTRACE=1
-      - JWT_SECRET=${JWT_SECRET}
+      REST_AUTH_SERVICE_URL: https://rust-bc.markmcclatchy.com/auth
+      RUST_LOG: info
+      RUST_BACKTRACE: 1
+      JWT_SECRET: ${JWT_SECRET}
     networks:
       - app-network
 

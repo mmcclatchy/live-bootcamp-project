@@ -8,7 +8,6 @@ pub struct User {
 }
 
 impl User {
-    #[allow(dead_code)]
     pub fn new(email: Email, password: Password, requires_2fa: bool) -> Self {
         User {
             email,
