@@ -1,4 +1,5 @@
-use std::sync::Arc;
+use core::fmt;
+use std::sync::{Arc, LazyLock};
 
 use axum::{extract::State, Json};
 use serde::{Deserialize, Serialize};
@@ -12,24 +13,28 @@ use crate::domain::{
 use crate::services::app_state::{AppServices, AppState};
 use crate::utils::auth::generate_password_reset_token;
 
-const INITIATE_PASSWORD_RESPONSE_MESSAGE: &str =
-    "If the email exists, a password reset link has been sent.";
-const INITIATE_PASSWORD_RESPONSE: Result<Json<InitiatePasswordResetResponse>, AuthAPIError> =
-    Ok(Json(InitiatePasswordResetResponse {
-        message: INITIATE_PASSWORD_RESPONSE_MESSAGE,
-    }));
+static INITIATE_PASSWORD_RESPONSE: LazyLock<InitiatePasswordResetResponse> =
+    LazyLock::new(|| InitiatePasswordResetResponse {
+        message: "If the email exists, a password reset link has been sent.".to_string(),
+    });
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct InitiatePasswordResetRequest {
     email: String,
 }
 
-#[derive(Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct InitiatePasswordResetResponse {
-    message: &'static str,
+    pub message: String,
 }
 
-pub async fn post<S: AppServices>(
+impl fmt::Display for InitiatePasswordResetResponse {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.message)
+    }
+}
+
+pub async fn post<'a, S: AppServices>(
     State(state): State<Arc<AppState<S>>>,
     Json(payload): Json<InitiatePasswordResetRequest>,
 ) -> Result<Json<InitiatePasswordResetResponse>, AuthAPIError> {
@@ -37,9 +42,9 @@ pub async fn post<S: AppServices>(
 
     let user_store = state.user_store.read().await;
     let token = match user_store.get_user(&email).await {
-        Err(_) => return INITIATE_PASSWORD_RESPONSE,
+        Err(_) => return Ok(Json(INITIATE_PASSWORD_RESPONSE.clone())),
         Ok(_) => match generate_password_reset_token(&email) {
-            Err(_) => return INITIATE_PASSWORD_RESPONSE,
+            Err(_) => return Ok(Json(INITIATE_PASSWORD_RESPONSE.clone())),
             Ok(token) => token,
         },
     };
@@ -51,9 +56,9 @@ pub async fn post<S: AppServices>(
 
     state
         .email_client
-        .send_email(&email, "Password Reset", &token)
+        .send_email(&email, "Password Reset Link", &token)
         .await
         .map_err(|_| AuthAPIError::UnexpectedError)?;
 
-    INITIATE_PASSWORD_RESPONSE
+    Ok(Json(INITIATE_PASSWORD_RESPONSE.clone()))
 }

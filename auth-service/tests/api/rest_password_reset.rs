@@ -1,4 +1,8 @@
 use crate::helpers::{get_random_email, RESTTestApp};
+use auth_service::utils::{
+    auth::{validate_token, TokenPurpose},
+    constants::JWT_COOKIE_NAME,
+};
 use serde_json::json;
 
 #[tokio::test]
@@ -54,7 +58,7 @@ async fn initiate_password_reset_sends_400_with_invalid_email() {
 }
 
 #[tokio::test]
-async fn reset_password_works_with_valid_token() {
+async fn reset_password_should_return_200_with_cookie_if_valid_token() {
     let app = RESTTestApp::new().await;
     let email = get_random_email();
 
@@ -82,7 +86,7 @@ async fn reset_password_works_with_valid_token() {
     let response_body: serde_json::Value = reset_response.json().await.unwrap();
     assert_eq!(
         response_body["message"],
-        "Password has been reset successfully."
+        "Password has been reset successfully.".to_string()
     );
 
     let login_body = json!({
@@ -91,10 +95,26 @@ async fn reset_password_works_with_valid_token() {
     });
     let login_response = app.post_login(&login_body).await;
     assert_eq!(login_response.status(), 200);
+
+    let auth_cookie = login_response
+        .cookies()
+        .find(|cookie| cookie.name() == JWT_COOKIE_NAME)
+        .expect(
+            "[ERROR][should_return_200_if_valid_credentials_and_2fs_disabled] No auth cookie found",
+        );
+
+    let token = auth_cookie.value();
+    assert!(!token.is_empty());
+
+    let claims = validate_token(app.app_state.banned_token_store.clone(), token)
+        .await
+        .unwrap();
+    assert_eq!(claims.sub, email);
+    assert_eq!(claims.purpose, TokenPurpose::Auth);
 }
 
 #[tokio::test]
-async fn reset_password_fails_with_invalid_token() {
+async fn reset_password_should_return_401_if_invalid_token_structure() {
     let app = RESTTestApp::new().await;
     let reset_body = json!({
         "token": "invalid_token",
@@ -102,14 +122,14 @@ async fn reset_password_fails_with_invalid_token() {
     });
 
     let reset_response = app.post_reset_password(&reset_body).await;
-    assert_eq!(reset_response.status(), 400);
+    assert_eq!(reset_response.status(), 401);
 
     let response_body: serde_json::Value = reset_response.json().await.unwrap();
-    assert_eq!(response_body["message"], "Invalid auth token");
+    assert_eq!(response_body["error"], "Invalid auth token");
 }
 
 #[tokio::test]
-async fn reset_password_fails_with_weak_password() {
+async fn reset_password_should_return_400_if_weak_password() {
     let app = RESTTestApp::new().await;
     let email = get_random_email();
 
@@ -134,10 +154,25 @@ async fn reset_password_fails_with_weak_password() {
         "new_password": "weakpassword"
     });
     let reset_response = app.post_reset_password(&reset_body).await;
+    println!(
+        "[TEST][reset_password_should_return_400_if_weak_password] {:?}",
+        reset_response
+    );
     assert_eq!(reset_response.status(), 400);
 
     let response_body: serde_json::Value = reset_response.json().await.unwrap();
-    assert!(response_body["message"]
-        .to_string()
-        .contains("Invalid password"));
+    println!(
+        "[TEST][reset_password_should_return_400_if_weak_password] {:?}",
+        response_body
+    );
+    let error_msg = response_body["error"].clone();
+    println!(
+        "[TEST][reset_password_should_return_400_if_weak_password] {:?}",
+        error_msg
+    );
+    println!(
+        "[TEST][reset_password_should_return_400_if_weak_password] {:?}",
+        error_msg.to_string()
+    );
+    assert!(error_msg.to_string().contains("Invalid Password"));
 }

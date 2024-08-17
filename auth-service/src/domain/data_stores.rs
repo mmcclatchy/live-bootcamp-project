@@ -13,6 +13,11 @@ use crate::domain::{email::Email, password::Password};
 pub trait UserStore: Clone + Send + Sync + 'static + fmt::Debug {
     async fn add_user(&mut self, user: User) -> Result<(), UserStoreError>;
     async fn get_user(&self, email: &Email) -> Result<User, UserStoreError>;
+    async fn update_password(
+        &mut self,
+        email: &Email,
+        password: Password,
+    ) -> Result<(), UserStoreError>;
     async fn validate_user(
         &self,
         email: &Email,

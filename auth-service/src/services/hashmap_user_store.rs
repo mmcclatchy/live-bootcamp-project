@@ -50,6 +50,17 @@ impl UserStore for HashmapUserStore {
         }
     }
 
+    async fn update_password(
+        &mut self,
+        email: &Email,
+        password: Password,
+    ) -> Result<(), UserStoreError> {
+        let mut user = self.get_user(email).await?;
+        user.update_password(password);
+        self.users.insert((*email).clone(), user);
+        Ok(())
+    }
+
     async fn validate_user(
         &self,
         email: &Email,

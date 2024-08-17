@@ -16,4 +16,8 @@ impl User {
             requires_2fa,
         }
     }
+
+    pub fn update_password(&mut self, password: Password) {
+        self.password = password;
+    }
 }

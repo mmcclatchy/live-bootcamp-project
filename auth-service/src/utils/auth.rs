@@ -1,3 +1,4 @@
+use core::fmt;
 use std::sync::Arc;
 
 use axum_extra::extract::cookie::{Cookie, SameSite};
@@ -13,18 +14,33 @@ use super::constants::{Epoch, JWT_COOKIE_NAME, JWT_SECRET, PASSWORD_RESET_TOKEN_
 
 pub const TOKEN_TTL_SECONDS: i64 = 600;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum GenerateTokenError {
     TokenError(jsonwebtoken::errors::Error),
     BannedToken,
     UnexpectedError,
 }
 
+#[derive(Debug, Deserialize, Serialize, PartialEq)]
+pub enum TokenPurpose {
+    Auth,
+    PasswordReset,
+}
+
+impl fmt::Display for TokenPurpose {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            TokenPurpose::Auth => write!(f, "auth"),
+            TokenPurpose::PasswordReset => write!(f, "password reset"),
+        }
+    }
+}
+
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Claims {
     pub sub: String,
     pub exp: Epoch,
-    pub purpose: String,
+    pub purpose: TokenPurpose,
 }
 
 pub fn generate_auth_cookie(email: &Email) -> Result<Cookie<'static>, GenerateTokenError> {
@@ -55,7 +71,7 @@ pub fn generate_auth_token(email: &Email) -> Result<String, GenerateTokenError> 
     let claims = Claims {
         sub,
         exp,
-        purpose: "auth".to_string(),
+        purpose: TokenPurpose::Auth,
     };
     create_token(&claims).map_err(GenerateTokenError::TokenError)
 }
@@ -111,27 +127,26 @@ pub fn generate_password_reset_token(email: &Email) -> Result<String, GenerateTo
     let claims = Claims {
         sub,
         exp,
-        purpose: "password_reset".to_string(),
+        purpose: TokenPurpose::PasswordReset,
     };
     create_token(&claims).map_err(GenerateTokenError::TokenError)
 }
 
-pub fn validate_password_reset_token(
+pub async fn validate_password_reset_token<T: BannedTokenStore>(
+    banned_token_store: Arc<RwLock<T>>,
     token: &str,
-) -> Result<(Email, Claims), jsonwebtoken::errors::Error> {
-    let claims = decode::<Claims>(
-        token,
-        &DecodingKey::from_secret(JWT_SECRET.as_bytes()),
-        &Validation::default(),
-    )?
-    .claims;
+) -> Result<(Email, Claims), GenerateTokenError> {
+    let claims = validate_token(banned_token_store, token).await?;
 
-    if claims.purpose != "password_reset" {
-        return Err(jsonwebtoken::errors::ErrorKind::InvalidToken.into());
+    if claims.purpose != TokenPurpose::PasswordReset {
+        return Err(GenerateTokenError::TokenError(
+            jsonwebtoken::errors::ErrorKind::InvalidToken.into(),
+        ));
     }
 
-    let email = Email::parse(claims.sub.clone())
-        .map_err(|_| jsonwebtoken::errors::ErrorKind::InvalidSubject)?;
+    let email = Email::parse(claims.sub.clone()).map_err(|_| {
+        GenerateTokenError::TokenError(jsonwebtoken::errors::ErrorKind::InvalidSubject.into())
+    })?;
 
     Ok((email, claims))
 }
@@ -200,9 +215,10 @@ mod tests {
         let email = Email::parse("test@example.com".to_owned()).unwrap();
         let token = generate_auth_token(&email).unwrap();
         let banned_token_store = Arc::new(RwLock::new(HashMapBannedTokenStore::new()));
-
         let result = validate_token(banned_token_store, &token).await;
+
         assert!(result.is_ok());
+
         let claims = result.unwrap();
         assert_eq!(claims.sub, "test@example.com");
 
@@ -218,8 +234,8 @@ mod tests {
     async fn test_validate_token_with_invalid_token() {
         let token = "invalid_token".to_owned();
         let banned_token_store = Arc::new(RwLock::new(HashMapBannedTokenStore::new()));
-
         let result = validate_token(banned_token_store, &token).await;
+
         assert!(result.is_err());
         assert!(matches!(result, Err(GenerateTokenError::TokenError(_))));
     }
@@ -241,8 +257,8 @@ mod tests {
         assert!(matches!(result, Err(GenerateTokenError::BannedToken)));
     }
 
-    #[test]
-    fn test_generate_password_reset_token() {
+    #[tokio::test]
+    async fn test_generate_password_reset_token() {
         let email = Email::parse("test@example.com".to_string()).unwrap();
         let result = generate_password_reset_token(&email);
 
@@ -251,8 +267,8 @@ mod tests {
         assert_eq!(token.split('.').count(), 3); // JWT format: header.payload.signature
     }
 
-    #[test]
-    fn test_generate_password_reset_token_expiration() {
+    #[tokio::test]
+    async fn test_generate_password_reset_token_expiration() {
         let email = Email::parse("test@example.com".to_string()).unwrap();
         let token = generate_password_reset_token(&email).unwrap();
 
@@ -269,72 +285,78 @@ mod tests {
         assert!(claims.exp <= now + PASSWORD_RESET_TOKEN_TTL_SECONDS as Epoch);
     }
 
-    #[test]
-    fn test_validate_password_reset_token_valid() {
+    #[tokio::test]
+    async fn test_validate_password_reset_token_valid() {
         let email = Email::parse("test@example.com".to_string()).unwrap();
         let token = generate_password_reset_token(&email).unwrap();
+        let banned_token_store = Arc::new(RwLock::new(HashMapBannedTokenStore::new()));
+        let result = validate_token(banned_token_store, &token).await;
 
-        let result = validate_password_reset_token(&token);
         assert!(result.is_ok());
 
-        let (validated_email, claims) = result.unwrap();
-        assert_eq!(validated_email, email);
+        let claims = result.unwrap();
         assert_eq!(claims.sub, email.as_ref());
-        assert_eq!(claims.purpose, "password_reset");
+        assert_eq!(claims.purpose, TokenPurpose::PasswordReset);
     }
 
-    #[test]
-    fn test_validate_password_reset_token_invalid_purpose() {
+    #[tokio::test]
+    async fn test_validate_password_reset_token_invalid_purpose() {
         let email = Email::parse("test@example.com".to_string()).unwrap();
         let exp = (Utc::now().timestamp() + 3600) as Epoch;
         let claims = Claims {
             sub: email.as_ref().to_string(),
             exp,
-            purpose: "login".to_string(),
+            purpose: TokenPurpose::Auth,
         };
         let token = create_token(&claims).unwrap();
 
-        let result = validate_password_reset_token(&token);
+        let banned_token_store = Arc::new(RwLock::new(HashMapBannedTokenStore::new()));
+        let result = validate_password_reset_token(banned_token_store, &token).await;
+
         assert!(result.is_err());
         assert_eq!(
-            *result.unwrap_err().kind(),
-            jsonwebtoken::errors::ErrorKind::InvalidToken
+            result.unwrap_err(),
+            GenerateTokenError::TokenError(jsonwebtoken::errors::ErrorKind::InvalidToken.into())
         );
     }
 
-    #[test]
-    fn test_validate_password_reset_token_expired() {
+    #[tokio::test]
+    async fn test_validate_password_reset_token_expired() {
         let email = Email::parse("test@example.com".to_string()).unwrap();
         let exp = (Utc::now().timestamp() - 3600) as Epoch; // 1 hour in the past
         let claims = Claims {
             sub: email.as_ref().to_string(),
             exp,
-            purpose: "password_reset".to_string(),
+            purpose: TokenPurpose::PasswordReset,
         };
         let token = create_token(&claims).unwrap();
+        let banned_token_store = Arc::new(RwLock::new(HashMapBannedTokenStore::new()));
+        let result = validate_password_reset_token(banned_token_store, &token).await;
 
-        let result = validate_password_reset_token(&token);
         assert!(result.is_err());
         assert_eq!(
-            *result.unwrap_err().kind(),
-            jsonwebtoken::errors::ErrorKind::ExpiredSignature
+            result.unwrap_err(),
+            GenerateTokenError::TokenError(
+                jsonwebtoken::errors::ErrorKind::ExpiredSignature.into()
+            )
         );
     }
 
-    #[test]
-    fn test_validate_password_reset_token_invalid_email() {
+    #[tokio::test]
+    async fn test_validate_password_reset_token_invalid_email() {
         let claims = Claims {
             sub: "invalid_email".to_string(),
             exp: (Utc::now().timestamp() + 3600) as Epoch,
-            purpose: "password_reset".to_string(),
+            purpose: TokenPurpose::PasswordReset,
         };
         let token = create_token(&claims).unwrap();
+        let banned_token_store = Arc::new(RwLock::new(HashMapBannedTokenStore::new()));
+        let result = validate_password_reset_token(banned_token_store, &token).await;
 
-        let result = validate_password_reset_token(&token);
         assert!(result.is_err());
         assert_eq!(
-            *result.unwrap_err().kind(),
-            jsonwebtoken::errors::ErrorKind::InvalidSubject
+            result.unwrap_err(),
+            GenerateTokenError::TokenError(jsonwebtoken::errors::ErrorKind::InvalidSubject.into())
         );
     }
 }
