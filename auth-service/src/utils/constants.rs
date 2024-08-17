@@ -30,5 +30,7 @@ pub mod test {
 }
 
 pub const JWT_COOKIE_NAME: &str = "jwt";
+pub const TOKEN_TTL_SECONDS: i64 = 600;
+pub const PASSWORD_RESET_TOKEN_TTL_SECONDS: i64 = 3600;
 
 pub type Epoch = u32;

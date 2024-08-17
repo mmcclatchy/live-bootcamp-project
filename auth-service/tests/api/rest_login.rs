@@ -12,7 +12,7 @@ use auth_service::{
     },
     routes::login::TwoFactorAuthResponse,
     services::app_state::{AppServices, AppState},
-    utils::constants::JWT_COOKIE_NAME,
+    utils::{auth::validate_token, constants::JWT_COOKIE_NAME},
 };
 
 use crate::helpers::{get_random_email, RESTTestApp};
@@ -114,7 +114,14 @@ async fn should_return_200_if_valid_credentials_and_2fs_disabled() {
             "[ERROR][should_return_200_if_valid_credentials_and_2fs_disabled] No auth cookie found",
         );
 
-    assert!(!auth_cookie.value().is_empty());
+    let token = auth_cookie.value();
+    assert!(!token.is_empty());
+
+    let claims = validate_token(app.app_state.banned_token_store.clone(), token)
+        .await
+        .unwrap();
+    assert_eq!(claims.sub, user.email.as_ref());
+    assert_eq!(claims.purpose, "auth");
 }
 
 #[tokio::test]

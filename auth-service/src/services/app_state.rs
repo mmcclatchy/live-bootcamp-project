@@ -20,7 +20,7 @@ pub struct AppState<S: AppServices> {
     pub banned_token_store: Arc<RwLock<S::BannedTokenStore>>,
     pub user_store: Arc<RwLock<S::UserStore>>,
     pub two_fa_code_store: Arc<RwLock<S::TwoFACodeStore>>,
-    pub email_client: Arc<RwLock<S::EmailClient>>,
+    pub email_client: S::EmailClient,
     pub password_reset_token_store: Arc<RwLock<S::PasswordResetTokenStore>>,
 }
 
@@ -36,7 +36,7 @@ impl<S: AppServices> AppState<S> {
             banned_token_store: Arc::new(RwLock::new(banned_token_store)),
             user_store: Arc::new(RwLock::new(user_store)),
             two_fa_code_store: Arc::new(RwLock::new(two_factor_code_store)),
-            email_client: Arc::new(RwLock::new(email_client)),
+            email_client,
             password_reset_token_store: Arc::new(RwLock::new(password_reset_token_store)),
         }
     }

@@ -30,9 +30,7 @@ async fn initiate_password_reset_returns_same_message_for_non_existing_email() {
     let app = RESTTestApp::new().await;
     let non_existing_email = get_random_email();
 
-    let reset_body = json!({
-        "email": non_existing_email
-    });
+    let reset_body = json!({ "email": non_existing_email });
     let reset_response = app.post_initiate_password_reset(&reset_body).await;
     assert_eq!(reset_response.status(), 200);
 
@@ -44,19 +42,15 @@ async fn initiate_password_reset_returns_same_message_for_non_existing_email() {
 }
 
 #[tokio::test]
-async fn initiate_password_reset_fails_with_invalid_email() {
+async fn initiate_password_reset_sends_400_with_invalid_email() {
     let app = RESTTestApp::new().await;
-    let reset_body = json!({
-        "email": "not-an-email"
-    });
+    let reset_body = json!({ "email": "not-an-email" });
 
     let reset_response = app.post_initiate_password_reset(&reset_body).await;
     assert_eq!(reset_response.status(), 400);
 
     let response_body: serde_json::Value = reset_response.json().await.unwrap();
-    assert!(response_body["message"]
-        .to_string()
-        .contains("Invalid email"));
+    assert_eq!(response_body["error"], "Invalid email address");
 }
 
 #[tokio::test]

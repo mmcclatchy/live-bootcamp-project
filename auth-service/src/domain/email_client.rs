@@ -1,9 +1,9 @@
-use core::fmt;
+use core::fmt::Debug;
 
 use super::email::Email;
 
 #[async_trait::async_trait]
-pub trait EmailClient: Clone + Send + Sync + 'static + fmt::Debug {
+pub trait EmailClient: Clone + Send + Sync + Debug + 'static {
     async fn send_email(
         &self,
         recipient: &Email,

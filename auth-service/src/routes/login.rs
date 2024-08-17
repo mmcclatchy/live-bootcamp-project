@@ -89,8 +89,8 @@ async fn handle_2fa<S: AppServices>(
         login_attempt_id: login_attempt_id.to_string(),
     };
 
-    let email_client = state.email_client.read().await;
-    if email_client
+    if state
+        .email_client
         .send_email(
             &email,
             "Rust Live Boot-camp Authentication Code",
