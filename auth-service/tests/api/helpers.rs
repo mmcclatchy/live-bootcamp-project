@@ -1,12 +1,12 @@
 use auth_proto::auth_service_client::AuthServiceClient;
 use auth_service::{
     domain::{
-        data_stores::{UserStore, UserStoreError},
+        data_stores::{PasswordResetTokenStore, UserStore, UserStoreError},
         email::Email,
         user::User,
     },
     services::{
-        app_state::{AppServices, AppState},
+        app_state::AppState,
         concrete_app_services::{MemoryAppStateType, MemoryServices},
         hashmap_banned_token_store::HashMapBannedTokenStore,
         hashmap_password_reset_token_store::HashMapPasswordResetTokenStore,
@@ -130,10 +130,41 @@ impl RESTTestApp {
         let user_store = self.app_state.user_store.read().await;
         println!("[{}] {:?}", fn_name, user_store);
     }
+
+    pub async fn post_initiate_password_reset<Body: Serialize>(
+        &self,
+        body: &Body,
+    ) -> reqwest::Response {
+        let client_url = format!("{}/initiate-password-reset", &self.address);
+        println!("[RESTTestApp][post_initiate_password_reset] Client URL: {client_url}");
+        self.client
+            .post(&client_url)
+            .json(body)
+            .send()
+            .await
+            .expect("[RESTTestApp][post_initiate_password_reset] Failed to execute request.")
+    }
+
+    pub async fn post_reset_password<Body: Serialize>(&self, body: &Body) -> reqwest::Response {
+        let client_url = format!("{}/reset-password", &self.address);
+        println!("[RESTTestApp][post_reset_password] Client URL: {client_url}");
+        self.client
+            .post(&client_url)
+            .json(body)
+            .send()
+            .await
+            .expect("[RESTTestApp][post_reset_password] Failed to execute request.")
+    }
+
+    pub async fn get_password_reset_token(&self, email: &str) -> Option<String> {
+        let email = Email::parse(email.to_string()).ok()?;
+        let token_store = self.app_state.password_reset_token_store.read().await;
+        token_store.get_token(&email).await.ok()
+    }
 }
 
 pub struct GRPCTestApp {
-    pub address: String,
+    // pub address: String,
     pub client: AuthServiceClient<Channel>,
     pub app_state: MemoryAppStateType,
 }
@@ -169,7 +200,7 @@ impl GRPCTestApp {
             .expect("[ERROR][GRPCTestApp][new] Failed to create gRPC client");
 
         Self {
-            address,
+            // address,
             client,
             app_state: app_state.clone(),
         }
@@ -227,11 +258,11 @@ pub async fn create_app_with_logged_in_token() -> (RESTTestApp, String) {
     (app, token)
 }
 
-pub fn print_app_state<S: AppServices>(app_state: &AppState<S>, prefix: &str) {
-    println!("\n------------ AppState ------------");
-    println!("{prefix} {:?}", app_state.banned_token_store);
-    println!("{prefix} {:?}", app_state.user_store);
-    println!("{prefix} {:?}", app_state.two_fa_code_store);
-    println!("{prefix} {:?}", app_state.password_reset_token_store);
-    println!("----------------------------------\n");
-}
+// pub fn print_app_state<S: AppServices>(app_state: &AppState<S>, prefix: &str) {
+//     println!("\n------------ AppState ------------");
+//     println!("{prefix} {:?}", app_state.banned_token_store);
+//     println!("{prefix} {:?}", app_state.user_store);
+//     println!("{prefix} {:?}", app_state.two_fa_code_store);
+//     println!("{prefix} {:?}", app_state.password_reset_token_store);
+//     println!("----------------------------------\n");
+// }
