@@ -1,6 +1,6 @@
 **/target
 **/.vscode/
-.env
+.env*
 *.tfvars
 *.auto.tfvars
 **/.terraform/

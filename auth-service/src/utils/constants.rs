@@ -3,26 +3,28 @@ use lazy_static::lazy_static;
 use std::env as std_env;
 
 lazy_static! {
-    pub static ref JWT_SECRET: String = set_token();
-    pub static ref REST_AUTH_SERVICE_URL: String = set_rest_auth_service_url();
+    pub static ref DATABASE_URL: String = set_required_env_var(env::DATABASE_URL_ENV_VAR);
+    pub static ref JWT_SECRET: String = set_required_env_var(env::JWT_SECRET_ENV_VAR);
+    pub static ref REST_AUTH_SERVICE_URL: String =
+        set_default_env_var(env::REST_AUTH_SERVICE_URL_ENV_VAR, "http://localhost/auth");
 }
 
-fn set_token() -> String {
+fn set_default_env_var(var_name: &str, default_value: &str) -> String {
     dotenv().ok();
-    let secret = std_env::var(env::JWT_SECRET_ENV_VAR).expect("JWT_SECRET must be set.");
-    if secret.is_empty() {
-        panic!("JWT_SECRET must not be empty.");
+    std_env::var(var_name).unwrap_or_else(|_| default_value.to_string())
+}
+
+fn set_required_env_var(var_name: &str) -> String {
+    dotenv().ok();
+    let var_value = std_env::var(var_name).expect("{var_name} must be set.");
+    if var_value.is_empty() {
+        panic!("{var_name} must not be empty.");
     }
-    secret
-}
-
-fn set_rest_auth_service_url() -> String {
-    dotenv().ok();
-    std_env::var(env::REST_AUTH_SERVICE_URL_ENV_VAR)
-        .unwrap_or_else(|_| "http://localhost/auth".to_string())
+    var_value
 }
 
 pub mod env {
+    pub const DATABASE_URL_ENV_VAR: &str = "DATABASE_URL";
     pub const JWT_SECRET_ENV_VAR: &str = "JWT_SECRET";
     pub const REST_AUTH_SERVICE_URL_ENV_VAR: &str = "REST_AUTH_SERVICE_URL";
 }

@@ -1,6 +1,7 @@
 use std::io::Write;
 
 use auth_service::{
+    get_postgres_pool,
     services::{
         app_state::AppState, concrete_app_services::MemoryAppStateType,
         hashmap_banned_token_store::HashMapBannedTokenStore,
@@ -8,11 +9,25 @@ use auth_service::{
         hashmap_two_fa_code_store::HashMapTwoFACodeStore, hashmap_user_store::HashmapUserStore,
         mock_email_client::MockEmailClient,
     },
-    utils::constants::prod,
+    utils::constants::{prod, DATABASE_URL},
     GRPCApp, RESTApp,
 };
 use log::{error, info};
+use sqlx::PgPool;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
+
+async fn configure_postgresql() -> PgPool {
+    let pg_pool = get_postgres_pool(&DATABASE_URL)
+        .await
+        .expect("[ERROR][main][configure_postgresql] Failed to create Postgres connection pool!");
+
+    sqlx::migrate!()
+        .run(&pg_pool)
+        .await
+        .expect("[ERROR][main][configure_postgresql] Failed to run migrations!");
+
+    pg_pool
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -23,11 +38,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with(env_filter)
         .with(tracing_subscriber::fmt::layer().with_writer(std::io::stderr))
         .try_init()
-        .unwrap_or_else(|e| eprintln!("Failed to initialize tracing: {:?}", e));
+        .unwrap_or_else(|e| {
+            eprintln!(
+                "[ERROR][tracing_subscriber::registry] Failed to initialize tracing: {:?}",
+                e
+            )
+        });
 
     eprintln!("Tracing initialized successfully");
     std::io::stderr().flush().unwrap();
     info!("Starting auth service");
+
+    let _pg_pool = configure_postgresql().await;
 
     let app_state: MemoryAppStateType = AppState::new_arc(
         HashMapBannedTokenStore::new(),

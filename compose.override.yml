@@ -21,6 +21,8 @@ services:
       RUST_BACKTRACE: full
     restart: unless-stopped
 
+  db:
+
   nginx:
     ports:
       - "80:80"
