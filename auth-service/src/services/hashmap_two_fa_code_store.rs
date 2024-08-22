@@ -12,9 +12,7 @@ pub struct HashMapTwoFACodeStore {
 
 impl HashMapTwoFACodeStore {
     pub fn new() -> Self {
-        Self {
-            codes: HashMap::new(),
-        }
+        Self { codes: HashMap::new() }
     }
 }
 
@@ -31,10 +29,7 @@ impl TwoFACodeStore for HashMapTwoFACodeStore {
         Ok(())
     }
 
-    async fn get_code(
-        &self,
-        email: &Email,
-    ) -> Result<(LoginAttemptId, TwoFACode), TwoFACodeStoreError> {
+    async fn get_code(&self, email: &Email) -> Result<(LoginAttemptId, TwoFACode), TwoFACodeStoreError> {
         match self.codes.get(email) {
             None => Err(TwoFACodeStoreError::LoginAttemptIdNotFound),
             Some(code_ref) => Ok((*code_ref).clone()),
@@ -95,10 +90,7 @@ mod tests {
         let result = store.get_code(&email).await;
 
         assert!(result.is_err());
-        assert_eq!(
-            result.unwrap_err(),
-            TwoFACodeStoreError::LoginAttemptIdNotFound
-        );
+        assert_eq!(result.unwrap_err(), TwoFACodeStoreError::LoginAttemptIdNotFound);
     }
 
     #[tokio::test]
@@ -125,10 +117,7 @@ mod tests {
         let result = store.remove_code(&email).await;
 
         assert!(result.is_err());
-        assert_eq!(
-            result.unwrap_err(),
-            TwoFACodeStoreError::LoginAttemptIdNotFound
-        );
+        assert_eq!(result.unwrap_err(), TwoFACodeStoreError::LoginAttemptIdNotFound);
     }
 
     #[tokio::test]
@@ -140,10 +129,7 @@ mod tests {
         let login_attempt_id2 = LoginAttemptId::default();
         let code2 = TwoFACode::default();
 
-        store
-            .add_code(email.clone(), login_attempt_id1, code1)
-            .await
-            .unwrap();
+        store.add_code(email.clone(), login_attempt_id1, code1).await.unwrap();
         store
             .add_code(email.clone(), login_attempt_id2.clone(), code2.clone())
             .await

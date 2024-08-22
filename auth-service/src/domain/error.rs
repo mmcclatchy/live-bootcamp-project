@@ -47,12 +47,8 @@ impl From<AuthAPIError> for tonic::Status {
             AuthAPIError::UnexpectedError => tonic::Status::internal(error.to_string()),
             AuthAPIError::MissingToken => tonic::Status::unauthenticated(error.to_string()),
             AuthAPIError::InvalidToken => tonic::Status::unauthenticated(error.to_string()),
-            AuthAPIError::InvalidLoginAttemptId => {
-                tonic::Status::unauthenticated(error.to_string())
-            }
-            AuthAPIError::InvalidTwoFactorAuthCode => {
-                tonic::Status::unauthenticated(error.to_string())
-            }
+            AuthAPIError::InvalidLoginAttemptId => tonic::Status::unauthenticated(error.to_string()),
+            AuthAPIError::InvalidTwoFactorAuthCode => tonic::Status::unauthenticated(error.to_string()),
         }
     }
 }

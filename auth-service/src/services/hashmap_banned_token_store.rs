@@ -12,9 +12,7 @@ pub struct HashMapBannedTokenStore {
 
 impl HashMapBannedTokenStore {
     pub fn new() -> Self {
-        Self {
-            tokens: HashMap::new(),
-        }
+        Self { tokens: HashMap::new() }
     }
 }
 
@@ -47,13 +45,7 @@ impl BannedTokenStore for HashMapBannedTokenStore {
         let expired_tokens: Vec<String> = self
             .tokens
             .iter()
-            .filter_map(|(token, &exp)| {
-                if exp <= epoch {
-                    Some(token.clone())
-                } else {
-                    None
-                }
-            })
+            .filter_map(|(token, &exp)| if exp <= epoch { Some(token.clone()) } else { None })
             .collect();
         for token in &expired_tokens {
             self.tokens.remove(token.as_str());
@@ -110,10 +102,9 @@ mod tests {
         let expired_token = create_token("expired@example.com");
         let valid_token = create_token("valid@example.com");
 
-        store.tokens.insert(
-            expired_token.clone(),
-            Utc::now().timestamp() as Epoch - 3600,
-        );
+        store
+            .tokens
+            .insert(expired_token.clone(), Utc::now().timestamp() as Epoch - 3600);
         store
             .tokens
             .insert(valid_token.clone(), Utc::now().timestamp() as Epoch + 3600);

@@ -1,6 +1,7 @@
 use core::fmt;
-use std::sync::Arc;
+use std::{error::Error, sync::Arc};
 
+use argon2::{password_hash::SaltString, Algorithm, Argon2, Params, PasswordHasher, Version};
 use axum_extra::extract::cookie::{Cookie, SameSite};
 use chrono::Utc;
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Validation};
@@ -58,15 +59,12 @@ pub fn create_auth_cookie(token: String) -> Cookie<'static> {
 }
 
 pub fn generate_auth_token(email: &Email) -> Result<String, GenerateTokenError> {
-    let delta = chrono::Duration::try_seconds(TOKEN_TTL_SECONDS)
-        .ok_or(GenerateTokenError::UnexpectedError)?;
+    let delta = chrono::Duration::try_seconds(TOKEN_TTL_SECONDS).ok_or(GenerateTokenError::UnexpectedError)?;
     let exp = Utc::now()
         .checked_add_signed(delta)
         .ok_or(GenerateTokenError::UnexpectedError)?
         .timestamp();
-    let exp: Epoch = exp
-        .try_into()
-        .map_err(|_| GenerateTokenError::UnexpectedError)?;
+    let exp: Epoch = exp.try_into().map_err(|_| GenerateTokenError::UnexpectedError)?;
     let sub = email.as_ref().to_owned();
     let claims = Claims {
         sub,
@@ -114,15 +112,13 @@ pub fn create_token(claims: &Claims) -> Result<String, jsonwebtoken::errors::Err
 }
 
 pub fn generate_password_reset_token(email: &Email) -> Result<String, GenerateTokenError> {
-    let delta = chrono::Duration::try_seconds(PASSWORD_RESET_TOKEN_TTL_SECONDS)
-        .ok_or(GenerateTokenError::UnexpectedError)?;
+    let delta =
+        chrono::Duration::try_seconds(PASSWORD_RESET_TOKEN_TTL_SECONDS).ok_or(GenerateTokenError::UnexpectedError)?;
     let exp = Utc::now()
         .checked_add_signed(delta)
         .ok_or(GenerateTokenError::UnexpectedError)?
         .timestamp();
-    let exp: Epoch = exp
-        .try_into()
-        .map_err(|_| GenerateTokenError::UnexpectedError)?;
+    let exp: Epoch = exp.try_into().map_err(|_| GenerateTokenError::UnexpectedError)?;
     let sub = email.as_ref().to_owned();
     let claims = Claims {
         sub,
@@ -144,11 +140,25 @@ pub async fn validate_password_reset_token<T: BannedTokenStore>(
         ));
     }
 
-    let email = Email::parse(claims.sub.clone()).map_err(|_| {
-        GenerateTokenError::TokenError(jsonwebtoken::errors::ErrorKind::InvalidSubject.into())
-    })?;
+    let email = Email::parse(claims.sub.clone())
+        .map_err(|_| GenerateTokenError::TokenError(jsonwebtoken::errors::ErrorKind::InvalidSubject.into()))?;
 
     Ok((email, claims))
+}
+
+pub async fn async_compute_password_hash(password: &str) -> Result<String, Box<dyn Error + Send + Sync>> {
+    let password = password.to_string();
+    let password_hash = tokio::task::spawn_blocking(|| compute_password_hash(password)).await??;
+
+    Ok(password_hash)
+}
+
+pub fn compute_password_hash(password: String) -> Result<String, Box<dyn Error + Send + Sync>> {
+    let salt: SaltString = SaltString::generate(&mut rand::thread_rng());
+    let argon2 = Argon2::new(Algorithm::Argon2id, Version::V0x13, Params::new(15000, 2, 1, None)?);
+    let hash = argon2.hash_password(password.as_bytes(), &salt)?.to_string();
+
+    Ok(hash)
 }
 
 //*******************************  TESTS  *******************************//
@@ -336,9 +346,7 @@ mod tests {
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err(),
-            GenerateTokenError::TokenError(
-                jsonwebtoken::errors::ErrorKind::ExpiredSignature.into()
-            )
+            GenerateTokenError::TokenError(jsonwebtoken::errors::ErrorKind::ExpiredSignature.into())
         );
     }
 

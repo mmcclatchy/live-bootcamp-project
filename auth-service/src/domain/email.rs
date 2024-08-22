@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 use std::fmt;
+
 use validator::ValidateEmail;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

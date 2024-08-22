@@ -3,7 +3,7 @@ use std::fmt;
 use rand::Rng;
 use uuid::Uuid;
 
-use super::user::User;
+use super::user::{NewUser, User};
 
 use crate::domain::{email::Email, password::Password};
 
@@ -11,18 +11,10 @@ use crate::domain::{email::Email, password::Password};
 
 #[async_trait::async_trait]
 pub trait UserStore: Clone + Send + Sync + 'static + fmt::Debug {
-    async fn add_user(&mut self, user: User) -> Result<(), UserStoreError>;
+    async fn add_user(&mut self, user: NewUser) -> Result<(), UserStoreError>;
     async fn get_user(&self, email: &Email) -> Result<User, UserStoreError>;
-    async fn update_password(
-        &mut self,
-        email: &Email,
-        password: Password,
-    ) -> Result<(), UserStoreError>;
-    async fn validate_user(
-        &self,
-        email: &Email,
-        password: &Password,
-    ) -> Result<User, UserStoreError>;
+    async fn update_password(&mut self, email: &Email, password: Password) -> Result<(), UserStoreError>;
+    async fn validate_user(&self, email: &Email, password: &Password) -> Result<User, UserStoreError>;
 }
 
 #[async_trait::async_trait]
@@ -43,10 +35,7 @@ pub trait TwoFACodeStore: Clone + Send + Sync + 'static + fmt::Debug {
 
     async fn remove_code(&mut self, email: &Email) -> Result<(), TwoFACodeStoreError>;
 
-    async fn get_code(
-        &self,
-        email: &Email,
-    ) -> Result<(LoginAttemptId, TwoFACode), TwoFACodeStoreError>;
+    async fn get_code(&self, email: &Email) -> Result<(LoginAttemptId, TwoFACode), TwoFACodeStoreError>;
 }
 
 #[async_trait::async_trait]
@@ -196,10 +185,7 @@ mod two_fa_code_tests {
         let invalid_code = "12345".to_string();
         let result = TwoFACode::parse(invalid_code);
         assert!(result.is_err());
-        assert_eq!(
-            result.unwrap_err(),
-            "Failed to parse Two-Factor Authorization Code"
-        );
+        assert_eq!(result.unwrap_err(), "Failed to parse Two-Factor Authorization Code");
     }
 
     #[test]
@@ -207,10 +193,7 @@ mod two_fa_code_tests {
         let invalid_code = "12345a".to_string();
         let result = TwoFACode::parse(invalid_code);
         assert!(result.is_err());
-        assert_eq!(
-            result.unwrap_err(),
-            "Failed to parse Two-Factor Authorization Code"
-        );
+        assert_eq!(result.unwrap_err(), "Failed to parse Two-Factor Authorization Code");
     }
 
     #[test]

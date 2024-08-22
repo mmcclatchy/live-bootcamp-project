@@ -30,19 +30,18 @@ pub async fn post<S: AppServices>(
     println!("[verify-2fa][post] {:?}", payload);
 
     let email = Email::parse(payload.email).map_err(AuthAPIError::InvalidEmail)?;
-    let login_attempt_id = LoginAttemptId::parse(payload.login_attempt_id)
-        .map_err(|_| AuthAPIError::InvalidLoginAttemptId)?;
-    let two_factor_code = TwoFACode::parse(payload.two_factor_code)
-        .map_err(|_| AuthAPIError::InvalidTwoFactorAuthCode)?;
+    let login_attempt_id =
+        LoginAttemptId::parse(payload.login_attempt_id).map_err(|_| AuthAPIError::InvalidLoginAttemptId)?;
+    let two_factor_code =
+        TwoFACode::parse(payload.two_factor_code).map_err(|_| AuthAPIError::InvalidTwoFactorAuthCode)?;
 
     println!("[verify-2fa][post] payload successfully parsed");
 
     // Use a timeout when acquiring the lock to prevent indefinite waiting
-    let mut two_fa_code_store =
-        match timeout(Duration::from_secs(5), state.two_fa_code_store.write()).await {
-            Ok(guard) => guard,
-            Err(_) => return Err(AuthAPIError::UnexpectedError),
-        };
+    let mut two_fa_code_store = match timeout(Duration::from_secs(5), state.two_fa_code_store.write()).await {
+        Ok(guard) => guard,
+        Err(_) => return Err(AuthAPIError::UnexpectedError),
+    };
     println!("[verify-2fa][post] {:?}", two_fa_code_store);
 
     let (stored_attempt_id, stored_2fa_code) = match two_fa_code_store.get_code(&email).await {

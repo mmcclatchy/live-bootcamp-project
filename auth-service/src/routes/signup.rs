@@ -5,12 +5,12 @@ use axum::{extract::State, Json};
 use log::info;
 use serde::{Deserialize, Serialize};
 
+use crate::domain::user::NewUser;
 use crate::domain::{
     data_stores::{UserStore, UserStoreError},
     email::Email,
     error::AuthAPIError,
     password::Password,
-    user::User,
 };
 use crate::services::app_state::{AppServices, AppState};
 
@@ -34,9 +34,11 @@ pub async fn post<S: AppServices>(
     info!("[REST][POST][/signup] Received request: {:?}", payload);
 
     let email = Email::parse(payload.email).map_err(AuthAPIError::InvalidEmail)?;
-    let password = Password::parse(payload.password).map_err(AuthAPIError::InvalidPassword)?;
+    let password = Password::parse(payload.password)
+        .await
+        .map_err(AuthAPIError::InvalidPassword)?;
 
-    let user = User::new(email, password, payload.requires_2fa);
+    let user = NewUser::new(email, password, payload.requires_2fa);
 
     let mut user_store = state.user_store.write().await;
     user_store.add_user(user).await.map_err(|e| match e {

@@ -43,12 +43,12 @@ pub async fn post<S: AppServices>(
     jar: CookieJar,
     Json(payload): Json<ResetPasswordRequest>,
 ) -> Result<(CookieJar, (StatusCode, Json<ResetPasswordResponse>)), AuthAPIError> {
-    let new_password =
-        Password::parse(payload.new_password).map_err(AuthAPIError::InvalidPassword)?;
-    let (email, claims) =
-        validate_password_reset_token(state.banned_token_store.clone(), &payload.token)
-            .await
-            .map_err(|_| AuthAPIError::InvalidToken)?;
+    let new_password = Password::parse(payload.new_password)
+        .await
+        .map_err(AuthAPIError::InvalidPassword)?;
+    let (email, claims) = validate_password_reset_token(state.banned_token_store.clone(), &payload.token)
+        .await
+        .map_err(|_| AuthAPIError::InvalidToken)?;
 
     if claims.purpose != TokenPurpose::PasswordReset {
         return Err(AuthAPIError::InvalidToken);

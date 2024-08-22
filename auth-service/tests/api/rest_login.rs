@@ -8,7 +8,7 @@ use auth_service::{
         data_stores::{TwoFACodeStore, UserStore},
         email::Email,
         password::Password,
-        user::User,
+        user::{DbUser, NewUser, User},
     },
     routes::login::TwoFactorAuthResponse,
     services::app_state::{AppServices, AppState},
@@ -27,25 +27,36 @@ fn create_login_body(email: &str, password: &str) -> Value {
     })
 }
 
-fn create_user(email: &str, password: &str, requires_2fa: bool) -> User {
+async fn create_db_user(email: &str, password: &str, requires_2fa: bool) -> DbUser {
     let email = Email::parse(email.to_string()).unwrap();
-    let password = Password::parse(password.to_string()).unwrap();
-    User {
+    let password = Password::parse(password.to_string()).await.unwrap();
+    DbUser {
+        email: email.to_string(),
+        password_hash: password.to_string(),
+        requires_2fa,
+    }
+}
+
+async fn create_new_user(email: &str, password: &str, requires_2fa: bool) -> NewUser {
+    let email = Email::parse(email.to_string()).unwrap();
+    let password = Password::parse(password.to_string()).await.unwrap();
+    NewUser {
         email,
         password,
         requires_2fa,
     }
 }
 
-async fn create_existing_user<S: AppServices>(
-    app_state: Arc<AppState<S>>,
-    requires_2fa: bool,
-) -> User {
+async fn create_existing_user<S: AppServices>(app_state: Arc<AppState<S>>, requires_2fa: bool) -> DbUser {
     let random_email = get_random_email();
-    let user = create_user(&random_email, "P@assw0rd", requires_2fa);
+    let user = create_new_user(&random_email, "P@assw0rd", requires_2fa).await;
     let mut user_store = app_state.user_store.write().await;
     user_store.add_user(user.clone()).await.unwrap();
-    user
+    DbUser {
+        email: user.email.to_string(),
+        password_hash: user.password.to_string(),
+        requires_2fa: user.requires_2fa,
+    }
 }
 
 #[rstest]
@@ -89,8 +100,7 @@ async fn should_return_400_if_invalid_input(#[case] email: &str, #[case] passwor
 async fn should_return_401_if_incorrect_credentials() {
     let app = RESTTestApp::new().await;
     let user = create_existing_user(app.app_state.clone(), false).await;
-    let login_body =
-        json!({ "email": user.email.to_string(),  "password": "Inv@lid_passw0rd".to_string() });
+    let login_body = json!({ "email": user.email.to_string(),  "password": "Inv@lid_passw0rd".to_string() });
     let login_response = app.post_login(&login_body).await;
 
     assert_eq!(
@@ -105,7 +115,7 @@ async fn should_return_401_if_incorrect_credentials() {
 async fn should_return_200_if_valid_credentials_and_2fs_disabled() {
     let app = RESTTestApp::new().await;
     let user = create_existing_user(app.app_state.clone(), false).await;
-    let login_body = create_login_body(&user.email.to_string(), &user.password.to_string());
+    let login_body = create_login_body(&user.email.to_string(), &user.password_hash);
     let login_response = app.post_login(&login_body).await;
 
     assert_eq!(login_response.status(), 200);
@@ -113,9 +123,7 @@ async fn should_return_200_if_valid_credentials_and_2fs_disabled() {
     let auth_cookie = login_response
         .cookies()
         .find(|cookie| cookie.name() == JWT_COOKIE_NAME)
-        .expect(
-            "[ERROR][should_return_200_if_valid_credentials_and_2fs_disabled] No auth cookie found",
-        );
+        .expect("[ERROR][should_return_200_if_valid_credentials_and_2fs_disabled] No auth cookie found");
 
     let token = auth_cookie.value();
     assert!(!token.is_empty());
@@ -131,7 +139,8 @@ async fn should_return_200_if_valid_credentials_and_2fs_disabled() {
 async fn should_return_206_if_valid_credentials_and_2fa_enabled() {
     let app = RESTTestApp::new().await;
     let user = create_existing_user(app.app_state.clone(), true).await;
-    let login_body = create_login_body(&user.email.to_string(), &user.password.to_string());
+    let user_email = Email::parse(user.email.clone()).unwrap();
+    let login_body = create_login_body(&user.email, &user.password_hash);
 
     let login_response = app.post_login(&login_body).await;
     assert_eq!(login_response.status(), 206);
@@ -143,6 +152,6 @@ async fn should_return_206_if_valid_credentials_and_2fa_enabled() {
     assert_eq!(response_body.message, "2FA required");
 
     let two_fa_code_store = app.app_state.two_fa_code_store.read().await;
-    let (login_attempt_id, _) = two_fa_code_store.get_code(&user.email).await.unwrap();
+    let (login_attempt_id, _) = two_fa_code_store.get_code(&user_email).await.unwrap();
     assert_eq!(response_body.login_attempt_id, login_attempt_id.to_string());
 }

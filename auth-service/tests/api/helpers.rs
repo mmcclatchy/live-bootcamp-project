@@ -1,3 +1,13 @@
+use std::sync::Arc;
+
+use reqwest::cookie::Jar;
+use serde::Serialize;
+use serde_json::json;
+use tokio::sync::RwLockReadGuard;
+use tokio::time::{sleep, Duration};
+use tonic::transport::Channel;
+use uuid::Uuid;
+
 use auth_proto::auth_service_client::AuthServiceClient;
 use auth_service::{
     domain::{
@@ -8,6 +18,7 @@ use auth_service::{
     services::{
         app_state::AppState,
         concrete_app_services::{MemoryAppStateType, MemoryServices},
+        // data_stores::postgres_user_store::PostgresUserStore,
         hashmap_banned_token_store::HashMapBannedTokenStore,
         hashmap_password_reset_token_store::HashMapPasswordResetTokenStore,
         hashmap_two_fa_code_store::HashMapTwoFACodeStore,
@@ -17,14 +28,6 @@ use auth_service::{
     utils::constants::{test, JWT_COOKIE_NAME},
     GRPCApp, RESTApp,
 };
-use reqwest::cookie::Jar;
-use serde::Serialize;
-use serde_json::json;
-use std::sync::Arc;
-use tokio::sync::RwLockReadGuard;
-use tokio::time::{sleep, Duration};
-use tonic::transport::Channel;
-use uuid::Uuid;
 
 pub struct RESTTestApp {
     pub address: String,
@@ -36,7 +39,6 @@ pub struct RESTTestApp {
 impl RESTTestApp {
     pub async fn new() -> Self {
         let user_store = HashmapUserStore::new();
-        let user_store_id = user_store.get_id();
         let app_state = AppState::new_arc(
             HashMapBannedTokenStore::new(),
             user_store,
@@ -46,9 +48,9 @@ impl RESTTestApp {
         );
         let address = String::from(test::APP_REST_ADDRESS);
 
-        println!(
-            "[GRPCTestApp][new] Bound to address: {address} with UserStore id: {user_store_id}"
-        );
+        // println!(
+        //     "[GRPCTestApp][new] Bound to address: {address} with UserStore id: {user_store_id}"
+        // );
 
         let rest_app = RESTApp::new(app_state.clone(), address)
             .await
@@ -131,10 +133,7 @@ impl RESTTestApp {
         println!("[{}] {:?}", fn_name, user_store);
     }
 
-    pub async fn post_initiate_password_reset<Body: Serialize>(
-        &self,
-        body: &Body,
-    ) -> reqwest::Response {
+    pub async fn post_initiate_password_reset<Body: Serialize>(&self, body: &Body) -> reqwest::Response {
         let client_url = format!("{}/initiate-password-reset", &self.address);
         println!("[RESTTestApp][post_initiate_password_reset] Client URL: {client_url}");
         self.client
@@ -172,7 +171,7 @@ pub struct GRPCTestApp {
 impl GRPCTestApp {
     pub async fn new() -> Self {
         let user_store = HashmapUserStore::new();
-        let user_store_id = user_store.get_id();
+        // let user_store_id = user_store.get_id();
         let app_state = Arc::new(AppState::new(
             HashMapBannedTokenStore::new(),
             user_store,
@@ -186,9 +185,9 @@ impl GRPCTestApp {
             .await
             .expect("[ERROR][GRPCTestApp][new] Failed to create GRPCApp");
         let address = grpc_app.address;
-        println!(
-            "[GRPCTestApp][new] Bound to address: {address} with UserStore id: {user_store_id}"
-        );
+        // println!(
+        //     "[GRPCTestApp][new] Bound to address: {address} with UserStore id: {user_store_id}"
+        // );
 
         tokio::spawn(grpc_app.run());
 

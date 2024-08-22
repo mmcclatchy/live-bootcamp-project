@@ -18,10 +18,9 @@ use crate::{
 };
 
 lazy_static! {
-    static ref INITIATE_PASSWORD_RESPONSE: InitiatePasswordResetResponse =
-        InitiatePasswordResetResponse {
-            message: "If the email exists, a password reset link has been sent.".to_string(),
-        };
+    static ref INITIATE_PASSWORD_RESPONSE: InitiatePasswordResetResponse = InitiatePasswordResetResponse {
+        message: "If the email exists, a password reset link has been sent.".to_string(),
+    };
 }
 
 #[derive(Debug, Deserialize)]

@@ -140,9 +140,7 @@ async fn reset_password_should_return_200_with_cookie_if_valid_token() {
     let auth_cookie = login_response
         .cookies()
         .find(|cookie| cookie.name() == JWT_COOKIE_NAME)
-        .expect(
-            "[ERROR][initiate_password_reset_should_return_400_if_invalid_email] No auth cookie found",
-        );
+        .expect("[ERROR][initiate_password_reset_should_return_400_if_invalid_email] No auth cookie found");
 
     let token = auth_cookie.value();
     println!(

@@ -28,10 +28,8 @@ impl AppConfig {
                 .unwrap_or_else(|_| "http://localhost/auth".to_owned()),
             grpc_auth_service_url: env::var("GRPC_AUTH_SERVICE_URL")
                 .unwrap_or_else(|_| "http://0.0.0.0:50051".to_owned()),
-            rest_auth_service_host: env::var("REST_AUTH_SERVICE_HOST")
-                .unwrap_or_else(|_| "localhost".to_owned()),
-            grpc_auth_service_host: env::var("GRPC_AUTH_SERVICE_HOST")
-                .unwrap_or_else(|_| "0.0.0.0:50051".to_owned()),
+            rest_auth_service_host: env::var("REST_AUTH_SERVICE_HOST").unwrap_or_else(|_| "localhost".to_owned()),
+            grpc_auth_service_host: env::var("GRPC_AUTH_SERVICE_HOST").unwrap_or_else(|_| "0.0.0.0:50051".to_owned()),
         }
     }
 }
@@ -77,17 +75,13 @@ fn create_index_template(base_url: &str) -> IndexTemplate {
     }
 }
 
-async fn rest_root(
-    axum::extract::State(config): axum::extract::State<AppConfig>,
-) -> impl IntoResponse {
+async fn rest_root(axum::extract::State(config): axum::extract::State<AppConfig>) -> impl IntoResponse {
     println!("[rest_root] Called");
     let template = create_index_template(&config.rest_auth_service_url);
     Html(template.render().unwrap())
 }
 
-async fn grpc_root(
-    axum::extract::State(config): axum::extract::State<AppConfig>,
-) -> impl IntoResponse {
+async fn grpc_root(axum::extract::State(config): axum::extract::State<AppConfig>) -> impl IntoResponse {
     println!("[grpc_root] Called");
     let template = create_index_template(&config.grpc_auth_service_url);
     Html(template.render().unwrap())
@@ -131,10 +125,7 @@ async fn rest_protected(
             response
         }
         Err(e) => {
-            println!(
-                "[rest_protected] Failed to send request to auth service: {:?}",
-                e
-            );
+            println!("[rest_protected] Failed to send request to auth service: {:?}", e);
             return StatusCode::INTERNAL_SERVER_ERROR.into_response();
         }
     };
@@ -145,10 +136,7 @@ async fn rest_protected(
             Json(ProtectedRouteResponse::new()).into_response()
         }
         reqwest::StatusCode::UNAUTHORIZED | reqwest::StatusCode::BAD_REQUEST => {
-            println!(
-                "[rest_protected] Token validation failed: {:?}",
-                response.status()
-            );
+            println!("[rest_protected] Token validation failed: {:?}", response.status());
             StatusCode::UNAUTHORIZED.into_response()
         }
         _ => {
@@ -189,9 +177,7 @@ async fn grpc_protected(
     match client.verify_token(request).await {
         Ok(_) => Json(ProtectedRouteResponse::new()).into_response(),
         Err(status) => match status.code() {
-            tonic::Code::Unauthenticated | tonic::Code::InvalidArgument => {
-                StatusCode::UNAUTHORIZED.into_response()
-            }
+            tonic::Code::Unauthenticated | tonic::Code::InvalidArgument => StatusCode::UNAUTHORIZED.into_response(),
             _ => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
         },
     }
@@ -204,30 +190,22 @@ fn create_redirect(base_url: &str, endpoint: &str) -> impl IntoResponse {
     Redirect::to(redirect_uri)
 }
 
-async fn rest_login(
-    axum::extract::State(config): axum::extract::State<AppConfig>,
-) -> impl IntoResponse {
+async fn rest_login(axum::extract::State(config): axum::extract::State<AppConfig>) -> impl IntoResponse {
     println!("[rest_login] Called");
     create_redirect(&config.rest_auth_service_url, "login")
 }
 
-async fn rest_logout(
-    axum::extract::State(config): axum::extract::State<AppConfig>,
-) -> impl IntoResponse {
+async fn rest_logout(axum::extract::State(config): axum::extract::State<AppConfig>) -> impl IntoResponse {
     println!("[rest_logout] Called");
     create_redirect(&config.rest_auth_service_url, "logout")
 }
 
-async fn grpc_login(
-    axum::extract::State(config): axum::extract::State<AppConfig>,
-) -> impl IntoResponse {
+async fn grpc_login(axum::extract::State(config): axum::extract::State<AppConfig>) -> impl IntoResponse {
     println!("[grpc_login] Called");
     create_redirect(&config.grpc_auth_service_url, "login")
 }
 
-async fn grpc_logout(
-    axum::extract::State(config): axum::extract::State<AppConfig>,
-) -> impl IntoResponse {
+async fn grpc_logout(axum::extract::State(config): axum::extract::State<AppConfig>) -> impl IntoResponse {
     println!("[grpc_logout] Called");
     create_redirect(&config.grpc_auth_service_url, "logout")
 }

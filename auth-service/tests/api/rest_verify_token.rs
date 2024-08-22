@@ -1,6 +1,4 @@
-use auth_service::{
-    api::rest::ErrorResponse, domain::email::Email, utils::auth::generate_auth_token,
-};
+use auth_service::{api::rest::ErrorResponse, domain::email::Email, utils::auth::generate_auth_token};
 use serde_json::json;
 
 use crate::helpers::{create_app_with_logged_in_token, get_random_email, RESTTestApp};

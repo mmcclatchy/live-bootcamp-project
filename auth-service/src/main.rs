@@ -3,10 +3,13 @@ use std::io::Write;
 use auth_service::{
     get_postgres_pool,
     services::{
-        app_state::AppState, concrete_app_services::MemoryAppStateType,
+        app_state::AppState,
+        concrete_app_services::PersistentAppStateType,
+        data_stores::postgres_user_store::PostgresUserStore,
         hashmap_banned_token_store::HashMapBannedTokenStore,
         hashmap_password_reset_token_store::HashMapPasswordResetTokenStore,
-        hashmap_two_fa_code_store::HashMapTwoFACodeStore, hashmap_user_store::HashmapUserStore,
+        hashmap_two_fa_code_store::HashMapTwoFACodeStore,
+        // hashmap_user_store::HashmapUserStore,
         mock_email_client::MockEmailClient,
     },
     utils::constants::{prod, DATABASE_URL},
@@ -49,11 +52,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     std::io::stderr().flush().unwrap();
     info!("Starting auth service");
 
-    let _pg_pool = configure_postgresql().await;
+    let pg_pool = configure_postgresql().await;
 
-    let app_state: MemoryAppStateType = AppState::new_arc(
+    let app_state: PersistentAppStateType = AppState::new_arc(
         HashMapBannedTokenStore::new(),
-        HashmapUserStore::new(),
+        PostgresUserStore::new(pg_pool),
         HashMapTwoFACodeStore::new(),
         MockEmailClient,
         HashMapPasswordResetTokenStore::new(),

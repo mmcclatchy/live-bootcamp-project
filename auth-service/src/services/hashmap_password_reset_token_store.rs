@@ -11,9 +11,7 @@ pub struct HashMapPasswordResetTokenStore {
 
 impl HashMapPasswordResetTokenStore {
     pub fn new() -> Self {
-        Self {
-            tokens: HashMap::new(),
-        }
+        Self { tokens: HashMap::new() }
     }
 }
 
@@ -38,9 +36,7 @@ impl PasswordResetTokenStore for HashMapPasswordResetTokenStore {
     }
 
     async fn remove_token(&mut self, email: &Email) -> Result<(), TokenStoreError> {
-        self.tokens
-            .remove(email)
-            .ok_or(TokenStoreError::TokenNotFound)?;
+        self.tokens.remove(email).ok_or(TokenStoreError::TokenNotFound)?;
         Ok(())
     }
 }

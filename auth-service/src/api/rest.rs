@@ -60,10 +60,7 @@ impl RESTApp {
             .route("/logout", post(routes::logout::post))
             .route("/verify-2fa", post(routes::verify_2fa::post))
             .route("/verify-token", post(routes::verify_token::post))
-            .route(
-                "/initiate-password-reset",
-                post(routes::initiate_password_reset::post),
-            )
+            .route("/initiate-password-reset", post(routes::initiate_password_reset::post))
             .route("/reset-password", post(routes::reset_password::post))
             .route("/reset-password", get(routes::reset_password::get))
             .with_state(app_state)
@@ -98,12 +95,8 @@ pub struct ErrorResponse {
 impl IntoResponse for AuthAPIError {
     fn into_response(self) -> Response {
         let (status, error_message) = match self {
-            AuthAPIError::UserAlreadyExists => {
-                (StatusCode::CONFLICT, "User already exists".to_string())
-            }
-            AuthAPIError::InvalidCredentials => {
-                (StatusCode::UNAUTHORIZED, "Invalid credentials".to_string())
-            }
+            AuthAPIError::UserAlreadyExists => (StatusCode::CONFLICT, "User already exists".to_string()),
+            AuthAPIError::InvalidCredentials => (StatusCode::UNAUTHORIZED, "Invalid credentials".to_string()),
             AuthAPIError::InvalidEmail(msg) => (StatusCode::BAD_REQUEST, msg),
             AuthAPIError::InvalidPassword(msg) => (StatusCode::BAD_REQUEST, msg),
             AuthAPIError::UserNotFound => (StatusCode::NOT_FOUND, "User not found".to_string()),
@@ -111,23 +104,13 @@ impl IntoResponse for AuthAPIError {
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "An unexpected error occurred".to_string(),
             ),
-            AuthAPIError::MissingToken => {
-                (StatusCode::BAD_REQUEST, "Missing auth token".to_string())
-            }
-            AuthAPIError::InvalidToken => {
-                (StatusCode::UNAUTHORIZED, "Invalid auth token".to_string())
-            }
-            AuthAPIError::InvalidLoginAttemptId => {
-                (StatusCode::BAD_REQUEST, "Invalid auth id".to_string())
-            }
-            AuthAPIError::InvalidTwoFactorAuthCode => {
-                (StatusCode::BAD_REQUEST, "Invalid auth code".to_string())
-            }
+            AuthAPIError::MissingToken => (StatusCode::BAD_REQUEST, "Missing auth token".to_string()),
+            AuthAPIError::InvalidToken => (StatusCode::UNAUTHORIZED, "Invalid auth token".to_string()),
+            AuthAPIError::InvalidLoginAttemptId => (StatusCode::BAD_REQUEST, "Invalid auth id".to_string()),
+            AuthAPIError::InvalidTwoFactorAuthCode => (StatusCode::BAD_REQUEST, "Invalid auth code".to_string()),
         };
 
-        let body = Json(ErrorResponse {
-            error: error_message,
-        });
+        let body = Json(ErrorResponse { error: error_message });
 
         (status, body).into_response()
     }

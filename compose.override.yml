@@ -19,6 +19,7 @@ services:
       GRPC_AUTH_SERVICE_HOST_NAME: http://auth-service:50051
       RUST_LOG: debug
       RUST_BACKTRACE: full
+      SQLX_OFFLINE: true
     restart: unless-stopped
 
   db:

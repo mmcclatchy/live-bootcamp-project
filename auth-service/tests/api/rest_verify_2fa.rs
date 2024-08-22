@@ -176,9 +176,7 @@ async fn should_return_200_if_correct_code() {
     let auth_cookie = verify_2fa_response
         .cookies()
         .find(|cookie| cookie.name() == JWT_COOKIE_NAME)
-        .expect(
-            "[ERROR][should_return_200_if_valid_credentials_and_2fs_disabled] No auth cookie found",
-        );
+        .expect("[ERROR][should_return_200_if_valid_credentials_and_2fs_disabled] No auth cookie found");
 
     assert!(!auth_cookie.value().is_empty());
 }

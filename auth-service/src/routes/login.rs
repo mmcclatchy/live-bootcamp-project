@@ -9,9 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::domain::data_stores::{LoginAttemptId, TwoFACode, TwoFACodeStore};
 use crate::domain::email_client::EmailClient;
-use crate::domain::{
-    data_stores::UserStore, email::Email, error::AuthAPIError, password::Password,
-};
+use crate::domain::{data_stores::UserStore, email::Email, error::AuthAPIError, password::Password};
 use crate::services::app_state::{AppServices, AppState};
 use crate::utils::auth::generate_auth_cookie;
 
@@ -43,7 +41,9 @@ pub async fn post<S: AppServices>(
     info!("[REST][POST][/signup] Received request: {:?}", payload);
 
     let email = Email::parse(payload.email).map_err(AuthAPIError::InvalidEmail)?;
-    let password = Password::parse(payload.password).map_err(AuthAPIError::InvalidPassword)?;
+    let password = Password::parse(payload.password)
+        .await
+        .map_err(AuthAPIError::InvalidPassword)?;
     let user_store = state.user_store.write().await;
 
     let user = user_store
@@ -63,10 +63,7 @@ async fn handle_no_2fa(
 ) -> Result<(CookieJar, (StatusCode, Json<LoginResponse>)), AuthAPIError> {
     let auth_cookie = generate_auth_cookie(email).map_err(|_| AuthAPIError::UnexpectedError)?;
     let updated_jar = jar.add(auth_cookie);
-    Ok((
-        updated_jar,
-        (StatusCode::OK, Json(LoginResponse::RegularAuth)),
-    ))
+    Ok((updated_jar, (StatusCode::OK, Json(LoginResponse::RegularAuth))))
 }
 
 async fn handle_2fa<S: AppServices>(
@@ -91,11 +88,7 @@ async fn handle_2fa<S: AppServices>(
 
     if state
         .email_client
-        .send_email(
-            &email,
-            "Rust Live Boot-camp Authentication Code",
-            two_fa_code.as_ref(),
-        )
+        .send_email(&email, "Rust Live Boot-camp Authentication Code", two_fa_code.as_ref())
         .await
         .is_err()
     {
