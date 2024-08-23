@@ -20,7 +20,9 @@ use sqlx::PgPool;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
 async fn configure_postgresql() -> PgPool {
-    let pg_pool = get_postgres_pool(&DATABASE_URL)
+    #[allow(clippy::to_string_in_format_args, clippy::unnecessary_to_owned)]
+    let prod_db_url = format!("{}/rust-bc", DATABASE_URL.to_string());
+    let pg_pool = get_postgres_pool(&prod_db_url)
         .await
         .expect("[ERROR][main][configure_postgresql] Failed to create Postgres connection pool!");
 

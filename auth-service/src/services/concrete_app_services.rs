@@ -20,6 +20,7 @@ impl AppServices for MemoryServices {
     type EmailClient = MockEmailClient;
 }
 
+#[derive(Debug)]
 pub struct PersistentServices;
 
 impl AppServices for PersistentServices {

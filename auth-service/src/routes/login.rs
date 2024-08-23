@@ -19,14 +19,14 @@ pub struct LoginRequest {
     pub password: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TwoFactorAuthResponse {
     pub message: String,
     #[serde(rename = "loginAttemptId")]
     pub login_attempt_id: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum LoginResponse {
     RegularAuth,

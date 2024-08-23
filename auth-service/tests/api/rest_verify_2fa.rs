@@ -45,10 +45,12 @@ async fn create_app_with_login_response() -> (RESTTestApp, TwoFactorAuthResponse
 #[case::missing_2fa_code(json!({ "email": TEST_EMAIL.to_string(), "loginAttemptId": Uuid::new_v4().to_string() }))]
 #[tokio::test]
 async fn should_return_422_if_malformed_input(#[case] test_case: Value) {
-    let app = RESTTestApp::new().await;
+    let mut app = RESTTestApp::new().await;
     let response = app.post_verify_2fa(&test_case).await;
 
     assert_eq!(response.status(), 422);
+
+    app.clean_up().await.unwrap();
 }
 
 #[rstest]
@@ -61,7 +63,7 @@ async fn should_return_400_if_invalid_input(
     #[case] login_attempt_id: String,
     #[case] two_fa_code: &str,
 ) {
-    let app = RESTTestApp::new().await;
+    let mut app = RESTTestApp::new().await;
     let v2fa_body = json!({
         "email": email,
         "loginAttemptId": login_attempt_id,
@@ -72,11 +74,13 @@ async fn should_return_400_if_invalid_input(
     let two_fa_auth_response_status = response.status();
 
     assert_eq!(two_fa_auth_response_status, 400);
+
+    app.clean_up().await.unwrap();
 }
 
 #[tokio::test]
 async fn should_return_401_if_incorrect_credentials() {
-    let (app, login_response) = create_app_with_login_response().await;
+    let (mut app, login_response) = create_app_with_login_response().await;
 
     let two_fa_code_store = app.app_state.two_fa_code_store.read().await;
     let email = Email::parse(TEST_EMAIL.to_string()).unwrap();
@@ -110,6 +114,8 @@ async fn should_return_401_if_incorrect_credentials() {
         let response = app.post_verify_2fa(&test_case).await;
         assert_eq!(response.status(), 401, "Test case {} failed", i + 1);
     }
+
+    app.clean_up().await.unwrap();
 }
 
 #[tokio::test]
@@ -121,7 +127,7 @@ async fn should_return_401_if_old_code() {
     let (_, two_fa_code) = two_fa_code_store.get_code(&email).await.unwrap();
     drop(two_fa_code_store);
 
-    let (app, _) = get_two_fa_login_response(app).await;
+    let (mut app, _) = get_two_fa_login_response(app).await;
 
     let verify_2fa_body = json!({
         "email": TEST_EMAIL,
@@ -131,11 +137,13 @@ async fn should_return_401_if_old_code() {
 
     let verify_2fa_response = app.post_verify_2fa(&verify_2fa_body).await;
     assert_eq!(verify_2fa_response.status(), 401);
+
+    app.clean_up().await.unwrap();
 }
 
 #[tokio::test]
 async fn should_return_401_if_code_used_twice() {
-    let (app, login_response) = create_app_with_login_response().await;
+    let (mut app, login_response) = create_app_with_login_response().await;
 
     let two_fa_code_store = app.app_state.two_fa_code_store.read().await;
     let email = Email::parse(TEST_EMAIL.to_string()).unwrap();
@@ -153,11 +161,13 @@ async fn should_return_401_if_code_used_twice() {
 
     let verify_2fa_response = app.post_verify_2fa(&verify_2fa_body).await;
     assert_eq!(verify_2fa_response.status(), 401);
+
+    app.clean_up().await.unwrap();
 }
 
 #[tokio::test]
 async fn should_return_200_if_correct_code() {
-    let (app, login_response) = create_app_with_login_response().await;
+    let (mut app, login_response) = create_app_with_login_response().await;
 
     let two_fa_code_store = app.app_state.two_fa_code_store.read().await;
     let email = Email::parse(TEST_EMAIL.to_string()).unwrap();
@@ -179,4 +189,6 @@ async fn should_return_200_if_correct_code() {
         .expect("[ERROR][should_return_200_if_valid_credentials_and_2fs_disabled] No auth cookie found");
 
     assert!(!auth_cookie.value().is_empty());
+
+    app.clean_up().await.unwrap();
 }

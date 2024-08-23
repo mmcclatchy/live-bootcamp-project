@@ -15,14 +15,13 @@ services:
       - "3000:3000"
       - "50051:50051"
     environment:
+      DATABASE_URL: "postgres://postgres:${POSTGRES_PASSWORD}@localhost:5432"
       REST_AUTH_SERVICE_URL: http://localhost/auth
       GRPC_AUTH_SERVICE_HOST_NAME: http://auth-service:50051
       RUST_LOG: debug
       RUST_BACKTRACE: full
       SQLX_OFFLINE: true
     restart: unless-stopped
-
-  db:
 
   nginx:
     ports:

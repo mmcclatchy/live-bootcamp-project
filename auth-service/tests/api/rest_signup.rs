@@ -2,10 +2,7 @@ use rstest::rstest;
 use serde_json::json;
 
 use auth_service::domain::data_stores::UserStore;
-use auth_service::{
-    api::rest::ErrorResponse,
-    domain::{email::Email, password::Password},
-};
+use auth_service::{api::rest::ErrorResponse, domain::email::Email};
 
 use crate::helpers::{get_random_email, RESTTestApp};
 
@@ -17,17 +14,19 @@ const VALID_PASSWORD: &str = "P@ssw0rd123";
 #[case::missing_password(json!({ "email": get_random_email(), "requires2FA": true }))]
 #[tokio::test]
 async fn rest_signup_should_return_422_if_malformed_input(#[case] input: serde_json::Value) {
-    let app = RESTTestApp::new().await;
+    let mut app = RESTTestApp::new().await;
     app.log_user_store("rest_signup_should_return_422_if_malformed_input")
         .await;
 
     let response = app.post_signup(&input).await;
     assert_eq!(response.status().as_u16(), 422, "Failed for input: {:?}", input);
+
+    app.clean_up().await.unwrap();
 }
 
 #[tokio::test]
 async fn rest_signup_should_return_201_if_valid_input() {
-    let app = RESTTestApp::new().await;
+    let mut app = RESTTestApp::new().await;
     app.log_user_store("rest_signup_should_return_201_if_valid_input").await;
 
     let random_email = get_random_email();
@@ -54,6 +53,9 @@ async fn rest_signup_should_return_201_if_valid_input() {
     assert_eq!(user.email, email);
     // let password = Password::parse(VALID_PASSWORD.to_string()).await.unwrap();
     // assert_eq!(user.password, password);
+
+    drop(user_store);
+    app.clean_up().await.unwrap();
 }
 
 #[rstest]
@@ -87,7 +89,7 @@ async fn rest_signup_should_return_201_if_valid_input() {
 )]
 #[tokio::test]
 async fn rest_signup_should_return_400_if_invalid_password(#[case] test_case: serde_json::Value) {
-    let app = RESTTestApp::new().await;
+    let mut app = RESTTestApp::new().await;
     app.log_user_store("rest_signup_should_return_400_if_invalid_password")
         .await;
 
@@ -103,6 +105,8 @@ async fn rest_signup_should_return_400_if_invalid_password(#[case] test_case: se
         "Invalid Password: Must be at least 8 characters long, contain at least one uppercase character and one number"
             .to_owned()
     );
+
+    app.clean_up().await.unwrap();
 }
 
 #[rstest]
@@ -122,7 +126,7 @@ async fn rest_signup_should_return_400_if_invalid_password(#[case] test_case: se
 )]
 #[tokio::test]
 async fn rest_signup_should_return_400_if_invalid_email(#[case] test_case: serde_json::Value) {
-    let app = RESTTestApp::new().await;
+    let mut app = RESTTestApp::new().await;
     app.log_user_store("rest_signup_should_return_400_if_invalid_input")
         .await;
 
@@ -137,11 +141,13 @@ async fn rest_signup_should_return_400_if_invalid_email(#[case] test_case: serde
             .error,
         "Invalid email address".to_owned()
     );
+
+    app.clean_up().await.unwrap();
 }
 
 #[tokio::test]
 async fn rest_signup_should_return_409_if_email_already_exists() {
-    let app = RESTTestApp::new().await;
+    let mut app = RESTTestApp::new().await;
     app.log_user_store("rest_signup_should_return_409_if_email_already_exists")
         .await;
 
@@ -173,4 +179,6 @@ async fn rest_signup_should_return_409_if_email_already_exists() {
             .error,
         "User already exists".to_owned()
     );
+
+    app.clean_up().await.unwrap();
 }

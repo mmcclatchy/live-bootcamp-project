@@ -17,8 +17,8 @@ use auth_service::{
     },
     services::{
         app_state::AppState,
-        concrete_app_services::{MemoryAppStateType, MemoryServices},
-        // data_stores::postgres_user_store::PostgresUserStore,
+        concrete_app_services::{MemoryAppStateType, PersistentAppStateType},
+        data_stores::postgres_user_store::PostgresUserStore,
         hashmap_banned_token_store::HashMapBannedTokenStore,
         hashmap_password_reset_token_store::HashMapPasswordResetTokenStore,
         hashmap_two_fa_code_store::HashMapTwoFACodeStore,
@@ -29,16 +29,21 @@ use auth_service::{
     GRPCApp, RESTApp,
 };
 
+use crate::db::{configure_postgresql, delete_database};
+
 pub struct RESTTestApp {
     pub address: String,
     pub cookie_jar: Arc<Jar>,
     pub client: reqwest::Client,
-    pub app_state: Arc<AppState<MemoryServices>>,
+    pub app_state: PersistentAppStateType,
+    pub test_db_name: String,
+    clean_up_called: bool,
 }
 
 impl RESTTestApp {
     pub async fn new() -> Self {
-        let user_store = HashmapUserStore::new();
+        let (pg_pool, db_name) = configure_postgresql().await;
+        let user_store = PostgresUserStore::new(pg_pool);
         let app_state = AppState::new_arc(
             HashMapBannedTokenStore::new(),
             user_store,
@@ -48,9 +53,7 @@ impl RESTTestApp {
         );
         let address = String::from(test::APP_REST_ADDRESS);
 
-        // println!(
-        //     "[GRPCTestApp][new] Bound to address: {address} with UserStore id: {user_store_id}"
-        // );
+        println!("[RESTTestApp][new] Bound to address: {address} with DbName: {db_name}");
 
         let rest_app = RESTApp::new(app_state.clone(), address)
             .await
@@ -72,7 +75,15 @@ impl RESTTestApp {
             cookie_jar,
             client,
             app_state: app_state.clone(),
+            test_db_name: db_name.to_string(),
+            clean_up_called: false,
         }
+    }
+
+    pub async fn clean_up(&mut self) -> Result<(), String> {
+        delete_database(&self.test_db_name).await?;
+        self.clean_up_called = true;
+        Ok(())
     }
 
     pub async fn post_signup<Body: Serialize>(&self, body: &Body) -> reqwest::Response {
@@ -159,6 +170,14 @@ impl RESTTestApp {
         let email = Email::parse(email.to_string()).ok()?;
         let token_store = self.app_state.password_reset_token_store.read().await;
         token_store.get_token(&email).await.ok()
+    }
+}
+
+impl Drop for RESTTestApp {
+    fn drop(&mut self) {
+        if self.clean_up_called == false {
+            panic!("RESTTestApp clean_up not called")
+        }
     }
 }
 

@@ -15,8 +15,11 @@ fn set_default_env_var(var_name: &str, default_value: &str) -> String {
 }
 
 fn set_required_env_var(var_name: &str) -> String {
+    println!("Attempting to obtain {var_name} environment variable");
     dotenv().ok();
+    println!("dotenv Ok");
     let var_value = std_env::var(var_name).expect("{var_name} must be set.");
+    println!("{var_name}:  {var_value}");
     if var_value.is_empty() {
         panic!("{var_name} must not be empty.");
     }
@@ -37,6 +40,7 @@ pub mod prod {
 pub mod test {
     pub const APP_REST_ADDRESS: &str = "127.0.0.1:0";
     pub const APP_GRPC_ADDRESS: &str = "127.0.0.1:0";
+    pub const DATABASE_URL: &str = "postgres://postgres:password@db:5432";
 }
 
 pub const JWT_COOKIE_NAME: &str = "jwt";

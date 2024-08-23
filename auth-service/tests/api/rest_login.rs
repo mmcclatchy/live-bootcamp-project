@@ -8,9 +8,9 @@ use auth_service::{
         data_stores::{TwoFACodeStore, UserStore},
         email::Email,
         password::Password,
-        user::{DbUser, NewUser, User},
+        user::{DbUser, NewUser},
     },
-    routes::login::TwoFactorAuthResponse,
+    routes::login::{LoginResponse, TwoFactorAuthResponse},
     services::app_state::{AppServices, AppState},
     utils::{
         auth::{validate_token, TokenPurpose},
@@ -64,7 +64,7 @@ async fn create_existing_user<S: AppServices>(app_state: Arc<AppState<S>>, requi
 #[case::missing_email(json!({ "password": "P@ssword123" }))]
 #[tokio::test]
 async fn should_return_422_if_malformed_credentials(#[case] test_case: serde_json::Value) {
-    let app = RESTTestApp::new().await;
+    let mut app = RESTTestApp::new().await;
     let response = app.post_login(&test_case).await;
     assert_eq!(
         response.status(),
@@ -72,6 +72,8 @@ async fn should_return_422_if_malformed_credentials(#[case] test_case: serde_jso
         "[ERROR][should_return_422_if_malformed_credentials] Failed for input {:?}",
         test_case
     );
+
+    app.clean_up().await.unwrap();
 }
 
 #[rstest]
@@ -84,7 +86,7 @@ async fn should_return_422_if_malformed_credentials(#[case] test_case: serde_jso
 #[case::empty_email("", "P@ssword123")]
 #[tokio::test]
 async fn should_return_400_if_invalid_input(#[case] email: &str, #[case] password: &str) {
-    let app = RESTTestApp::new().await;
+    let mut app = RESTTestApp::new().await;
     let test_case = create_login_body(email, password);
     let response = app.post_login(&test_case).await;
 
@@ -94,11 +96,13 @@ async fn should_return_400_if_invalid_input(#[case] email: &str, #[case] passwor
         "[ERROR][should_return_400_if_invalid_input] Failed for input {:?}",
         test_case
     );
+
+    app.clean_up().await.unwrap();
 }
 
 #[tokio::test]
 async fn should_return_401_if_incorrect_credentials() {
-    let app = RESTTestApp::new().await;
+    let mut app = RESTTestApp::new().await;
     let user = create_existing_user(app.app_state.clone(), false).await;
     let login_body = json!({ "email": user.email.to_string(),  "password": "Inv@lid_passw0rd".to_string() });
     let login_response = app.post_login(&login_body).await;
@@ -108,15 +112,30 @@ async fn should_return_401_if_incorrect_credentials() {
         401,
         "[ERROR][should_return_401_if_incorrect_credentials] Failed for input {:?}",
         login_body
-    )
+    );
+
+    app.clean_up().await.unwrap();
 }
 
 #[tokio::test]
 async fn should_return_200_if_valid_credentials_and_2fs_disabled() {
-    let app = RESTTestApp::new().await;
+    let mut app = RESTTestApp::new().await;
     let user = create_existing_user(app.app_state.clone(), false).await;
     let login_body = create_login_body(&user.email.to_string(), &user.password_hash);
     let login_response = app.post_login(&login_body).await;
+
+    println!(
+        "[TEST][should_return_200_if_valid_credentials_and_2fs_disabled] {:?}",
+        app.app_state
+    );
+    println!(
+        "[TEST][should_return_200_if_valid_credentials_and_2fs_disabled] {:?}",
+        login_body
+    );
+    println!(
+        "[TEST][should_return_200_if_valid_credentials_and_2fs_disabled] {:?}",
+        login_response
+    );
 
     assert_eq!(login_response.status(), 200);
 
@@ -133,11 +152,13 @@ async fn should_return_200_if_valid_credentials_and_2fs_disabled() {
         .unwrap();
     assert_eq!(claims.sub, user.email.as_ref());
     assert_eq!(claims.purpose, TokenPurpose::Auth);
+
+    app.clean_up().await.unwrap();
 }
 
 #[tokio::test]
 async fn should_return_206_if_valid_credentials_and_2fa_enabled() {
-    let app = RESTTestApp::new().await;
+    let mut app = RESTTestApp::new().await;
     let user = create_existing_user(app.app_state.clone(), true).await;
     let user_email = Email::parse(user.email.clone()).unwrap();
     let login_body = create_login_body(&user.email, &user.password_hash);
@@ -154,4 +175,7 @@ async fn should_return_206_if_valid_credentials_and_2fa_enabled() {
     let two_fa_code_store = app.app_state.two_fa_code_store.read().await;
     let (login_attempt_id, _) = two_fa_code_store.get_code(&user_email).await.unwrap();
     assert_eq!(response_body.login_attempt_id, login_attempt_id.to_string());
+
+    drop(two_fa_code_store);
+    app.clean_up().await.unwrap();
 }

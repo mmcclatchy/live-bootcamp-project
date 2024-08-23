@@ -53,6 +53,7 @@ impl DbUser {
         }
     }
 
+    // TODO: This is only used in HashMapUserStore. Remove when gRPC is updated to use PostgresUserStore
     pub async fn update_password(&mut self, password: &Password) -> Result<(), UserStoreError> {
         let new_password_hash = async_compute_password_hash(password.as_ref())
             .await

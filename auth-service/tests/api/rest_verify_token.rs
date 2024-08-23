@@ -5,7 +5,7 @@ use crate::helpers::{create_app_with_logged_in_token, get_random_email, RESTTest
 
 #[tokio::test]
 async fn should_return_422_if_malformed_input() {
-    let app = RESTTestApp::new().await;
+    let mut app = RESTTestApp::new().await;
     let body = json!({ "not_token": "any"} );
     let response = app.post_verify_token(&body).await;
     assert_eq!(
@@ -14,11 +14,13 @@ async fn should_return_422_if_malformed_input() {
         "[ERROR][should_return_422_if_malformed_input] Failed for input {:?}",
         body,
     );
+
+    app.clean_up().await.unwrap();
 }
 
 #[tokio::test]
 async fn should_return_200_valid_token() {
-    let app = RESTTestApp::new().await;
+    let mut app = RESTTestApp::new().await;
     let email = get_random_email();
     let email = Email::parse(email).unwrap();
     let token = generate_auth_token(&email).unwrap();
@@ -30,11 +32,13 @@ async fn should_return_200_valid_token() {
         "[ERROR][should_return_200_valid_token] Failed for input {:?}",
         response,
     );
+
+    app.clean_up().await.unwrap();
 }
 
 #[tokio::test]
 async fn should_return_401_if_invalid_token() {
-    let app = RESTTestApp::new().await;
+    let mut app = RESTTestApp::new().await;
     let request_body = json!({ "token": "invalid token" });
     let response = app.post_verify_token(&request_body).await;
     assert_eq!(
@@ -51,11 +55,13 @@ async fn should_return_401_if_invalid_token() {
             .error,
         "Invalid credentials".to_owned()
     );
+
+    app.clean_up().await.unwrap();
 }
 
 #[tokio::test]
 async fn should_return_401_if_banned_token() {
-    let (app, token) = create_app_with_logged_in_token().await;
+    let (mut app, token) = create_app_with_logged_in_token().await;
 
     let logout_response = app.post_logout().await;
     assert_eq!(
@@ -81,4 +87,6 @@ async fn should_return_401_if_banned_token() {
             .error,
         "Invalid credentials".to_owned()
     );
+
+    app.clean_up().await.unwrap();
 }

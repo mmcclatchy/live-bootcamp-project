@@ -7,7 +7,7 @@ use serde_json::json;
 
 #[tokio::test]
 async fn initiate_password_reset_should_return_200_if_existing_email() {
-    let app = RESTTestApp::new().await;
+    let mut app = RESTTestApp::new().await;
     let email = get_random_email();
 
     let signup_body = json!({
@@ -36,11 +36,13 @@ async fn initiate_password_reset_should_return_200_if_existing_email() {
         response_body["message"],
         "If the email exists, a password reset link has been sent."
     );
+
+    app.clean_up().await.unwrap();
 }
 
 #[tokio::test]
 async fn initiate_password_reset_should_return_200_if_non_existing_email() {
-    let app = RESTTestApp::new().await;
+    let mut app = RESTTestApp::new().await;
     let non_existing_email = get_random_email();
 
     let reset_body = json!({ "email": non_existing_email });
@@ -60,11 +62,13 @@ async fn initiate_password_reset_should_return_200_if_non_existing_email() {
         response_body["message"],
         "If the email exists, a password reset link has been sent."
     );
+
+    app.clean_up().await.unwrap();
 }
 
 #[tokio::test]
 async fn initiate_password_reset_should_return_400_if_invalid_email() {
-    let app = RESTTestApp::new().await;
+    let mut app = RESTTestApp::new().await;
     let reset_body = json!({ "email": "not-an-email" });
 
     let initiate_reset_response = app.post_initiate_password_reset(&reset_body).await;
@@ -80,11 +84,13 @@ async fn initiate_password_reset_should_return_400_if_invalid_email() {
         response_body
     );
     assert_eq!(response_body["error"], "Invalid email address");
+
+    app.clean_up().await.unwrap();
 }
 
 #[tokio::test]
 async fn reset_password_should_return_200_with_cookie_if_valid_token() {
-    let app = RESTTestApp::new().await;
+    let mut app = RESTTestApp::new().await;
     let email = get_random_email();
 
     let signup_body = json!({
@@ -158,11 +164,13 @@ async fn reset_password_should_return_200_with_cookie_if_valid_token() {
     );
     assert_eq!(claims.sub, email);
     assert_eq!(claims.purpose, TokenPurpose::Auth);
+
+    app.clean_up().await.unwrap();
 }
 
 #[tokio::test]
 async fn reset_password_should_return_401_if_invalid_token_structure() {
-    let app = RESTTestApp::new().await;
+    let mut app = RESTTestApp::new().await;
     let reset_body = json!({
         "token": "invalid_token",
         "new_password": "NewP@ssw0rd123"
@@ -181,11 +189,13 @@ async fn reset_password_should_return_401_if_invalid_token_structure() {
         response_body
     );
     assert_eq!(response_body["error"], "Invalid auth token");
+
+    app.clean_up().await.unwrap();
 }
 
 #[tokio::test]
 async fn reset_password_should_return_400_if_weak_password() {
-    let app = RESTTestApp::new().await;
+    let mut app = RESTTestApp::new().await;
     let email = get_random_email();
 
     let signup_body = json!({
@@ -234,4 +244,6 @@ async fn reset_password_should_return_400_if_weak_password() {
         error_msg.to_string()
     );
     assert!(error_msg.to_string().contains("Invalid Password"));
+
+    app.clean_up().await.unwrap();
 }

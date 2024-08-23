@@ -1,10 +1,13 @@
 use sqlx::PgPool;
 
-use crate::domain::{
-    data_stores::{UserStore, UserStoreError},
-    email::Email,
-    password::Password,
-    user::{DbUser, NewUser, User},
+use crate::{
+    domain::{
+        data_stores::{UserStore, UserStoreError},
+        email::Email,
+        password::Password,
+        user::{DbUser, NewUser, User},
+    },
+    utils::auth::async_compute_password_hash,
 };
 
 #[derive(Clone, Debug)]
@@ -21,11 +24,14 @@ impl PostgresUserStore {
 #[async_trait::async_trait]
 impl UserStore for PostgresUserStore {
     async fn add_user(&mut self, user: NewUser) -> Result<(), UserStoreError> {
+        let password_hash = async_compute_password_hash(user.password.as_ref())
+            .await
+            .map_err(|_| UserStoreError::UnexpectedError)?;
         let result = sqlx::query_as!(
             DbUser,
             "INSERT INTO users (email, password_hash, requires_2fa) VALUES ($1, $2, $3)",
             user.email.as_ref(),
-            user.password.as_ref(),
+            password_hash,
             user.requires_2fa
         )
         .execute(&self.pool)
@@ -49,9 +55,12 @@ impl UserStore for PostgresUserStore {
     }
 
     async fn update_password(&mut self, email: &Email, password: Password) -> Result<(), UserStoreError> {
+        let password_hash = async_compute_password_hash(password.as_ref())
+            .await
+            .map_err(|_| UserStoreError::UnexpectedError)?;
         let result = sqlx::query!(
             "UPDATE users SET password_hash = $1 WHERE email = $2",
-            password.as_ref(),
+            password_hash,
             email.as_ref(),
         )
         .execute(&self.pool)

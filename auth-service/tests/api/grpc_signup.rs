@@ -1,7 +1,9 @@
-use crate::helpers::{get_random_email, wait_for_user, GRPCTestApp};
-use auth_proto::SignupRequest;
-use auth_service::domain::{email::Email, password::Password};
 use tonic::Request;
+
+use auth_proto::SignupRequest;
+use auth_service::domain::email::Email;
+
+use crate::helpers::{get_random_email, wait_for_user, GRPCTestApp};
 
 const VALID_PASSWORD: &str = "P@ssw0rd123";
 

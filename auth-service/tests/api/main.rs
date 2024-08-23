@@ -1,3 +1,4 @@
+mod db;
 mod grpc_signup;
 mod helpers;
 mod rest_login;
@@ -7,3 +8,4 @@ mod rest_signup;
 mod rest_verify_2fa;
 mod rest_verify_token;
 mod root;
+mod user_store;

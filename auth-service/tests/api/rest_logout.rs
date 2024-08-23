@@ -9,7 +9,7 @@ use crate::helpers::{create_app_with_logged_in_token, RESTTestApp};
 
 #[tokio::test]
 async fn should_return_200_if_valid_jwt_cookie() {
-    let (app, token) = create_app_with_logged_in_token().await;
+    let (mut app, token) = create_app_with_logged_in_token().await;
     let logout_response = app.post_logout().await;
     assert_eq!(logout_response.status(), 200);
     let cookie = logout_response
@@ -21,11 +21,14 @@ async fn should_return_200_if_valid_jwt_cookie() {
     let banned_token_store = app_state.banned_token_store.read().await;
     let check_token_result = banned_token_store.check_token(token).await;
     assert_eq!(check_token_result, Err(TokenStoreError::BannedToken));
+
+    drop(banned_token_store);
+    app.clean_up().await.unwrap();
 }
 
 #[tokio::test]
 async fn should_return_400_if_logout_called_twice_in_a_row() {
-    let (app, _) = create_app_with_logged_in_token().await;
+    let (mut app, _) = create_app_with_logged_in_token().await;
     let logout_response = app.post_logout().await;
     assert_eq!(logout_response.status(), 200);
     let logout_response = app.post_logout().await;
@@ -40,11 +43,13 @@ async fn should_return_400_if_logout_called_twice_in_a_row() {
             .error,
         "Missing auth token".to_owned()
     );
+
+    app.clean_up().await.unwrap();
 }
 
 #[tokio::test]
 async fn should_return_400_if_jwt_cookie_missing() {
-    let app = RESTTestApp::new().await;
+    let mut app = RESTTestApp::new().await;
     let logout_response = app.post_logout().await;
     assert_eq!(logout_response.status(), 400);
     let cookie = logout_response.cookies().find(|c| c.name() == JWT_COOKIE_NAME);
@@ -59,11 +64,13 @@ async fn should_return_400_if_jwt_cookie_missing() {
             .error,
         "Missing auth token".to_owned()
     );
+
+    app.clean_up().await.unwrap();
 }
 
 #[tokio::test]
 async fn should_return_401_if_invalid_token() {
-    let app = RESTTestApp::new().await;
+    let mut app = RESTTestApp::new().await;
     app.cookie_jar.add_cookie_str(
         &format!("{JWT_COOKIE_NAME}=invalid; HttpOnly; SameSite=Lax; Secure; Path=/"),
         &Url::parse("http://127.0.0.1").expect("[ERROR][create_app_with_cookie] Failed to parse URL"),
@@ -80,4 +87,6 @@ async fn should_return_401_if_invalid_token() {
             .error,
         "Invalid auth token".to_owned()
     );
+
+    app.clean_up().await.unwrap();
 }
