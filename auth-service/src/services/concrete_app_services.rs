@@ -4,7 +4,7 @@ use super::{
     app_state::{AppServices, AppState},
     data_stores::{
         postgres_user_store::PostgresUserStore, redis_banned_token_store::RedisBannedTokenStore,
-        redis_two_fa_code_store::RedisTwoFACodeStore,
+        redis_password_reset_token_store::RedisPasswordResetTokenStore, redis_two_fa_code_store::RedisTwoFACodeStore,
     },
     hashmap_banned_token_store::HashMapBannedTokenStore,
     hashmap_password_reset_token_store::HashMapPasswordResetTokenStore,
@@ -30,7 +30,7 @@ impl AppServices for PersistentServices {
     type BannedTokenStore = RedisBannedTokenStore;
     type UserStore = PostgresUserStore;
     type TwoFACodeStore = RedisTwoFACodeStore;
-    type PasswordResetTokenStore = HashMapPasswordResetTokenStore;
+    type PasswordResetTokenStore = RedisPasswordResetTokenStore;
     type EmailClient = MockEmailClient;
 }
 

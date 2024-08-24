@@ -7,9 +7,9 @@ use auth_service::{
         concrete_app_services::PersistentAppStateType,
         data_stores::{
             postgres_user_store::PostgresUserStore, redis_banned_token_store::RedisBannedTokenStore,
+            redis_password_reset_token_store::RedisPasswordResetTokenStore,
             redis_two_fa_code_store::RedisTwoFACodeStore,
         },
-        hashmap_password_reset_token_store::HashMapPasswordResetTokenStore,
         mock_email_client::MockEmailClient,
     },
     utils::constants::{prod, DATABASE_URL, REDIS_HOST_NAME},
@@ -71,7 +71,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         PostgresUserStore::new(pg_pool),
         RedisTwoFACodeStore::new(redis_conn.clone()),
         MockEmailClient,
-        HashMapPasswordResetTokenStore::new(),
+        RedisPasswordResetTokenStore::new(redis_conn.clone()),
     );
 
     let address = prod::APP_GRPC_ADDRESS.to_string();

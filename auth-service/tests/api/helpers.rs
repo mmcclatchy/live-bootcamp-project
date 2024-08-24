@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use auth_service::services::data_stores::redis_banned_token_store::RedisBannedTokenStore;
+use auth_service::services::data_stores::redis_password_reset_token_store::RedisPasswordResetTokenStore;
 use auth_service::services::data_stores::redis_two_fa_code_store::RedisTwoFACodeStore;
 use reqwest::cookie::Jar;
 use serde::Serialize;
@@ -52,7 +53,7 @@ impl RESTTestApp {
             user_store,
             RedisTwoFACodeStore::new(redis_conn.clone()),
             MockEmailClient,
-            HashMapPasswordResetTokenStore::new(),
+            RedisPasswordResetTokenStore::new(redis_conn.clone()),
         );
         let address = String::from(test::APP_REST_ADDRESS);
 

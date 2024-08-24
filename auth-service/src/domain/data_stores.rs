@@ -39,7 +39,7 @@ pub trait TwoFACodeStore: Clone + Send + Sync + 'static {
 }
 
 #[async_trait::async_trait]
-pub trait PasswordResetTokenStore: Clone + Send + Sync + 'static + fmt::Debug {
+pub trait PasswordResetTokenStore: Clone + Send + Sync + 'static {
     async fn add_token(&mut self, email: Email, token: String) -> Result<(), TokenStoreError>;
     async fn get_token(&self, email: &Email) -> Result<String, TokenStoreError>;
     async fn remove_token(&mut self, email: &Email) -> Result<(), TokenStoreError>;
