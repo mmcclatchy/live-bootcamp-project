@@ -40,6 +40,9 @@ services:
 
   db:
     image: postgres:15.2-alpine
+    build:
+      context: ./database
+      dockerfile: Dockerfile
     restart: always
     environment:
       POSTGRES_USER: postgres
@@ -48,6 +51,7 @@ services:
       - "5432:5432"
     volumes:
       - db:/var/lib/postgresql/data
+      - ./database/test_db_cleanup.sql:/docker-entrypoint-initdb.d/test_db_cleanup.sql
     networks:
       - app-network
 
