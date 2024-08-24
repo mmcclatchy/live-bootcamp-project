@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use auth_service::services::data_stores::redis_banned_token_store::RedisBannedTokenStore;
 use reqwest::cookie::Jar;
 use serde::Serialize;
 use serde_json::json;
@@ -29,7 +30,7 @@ use auth_service::{
     GRPCApp, RESTApp,
 };
 
-use crate::db::{configure_postgresql, delete_database};
+use crate::db::{configure_postgresql, configure_redis, delete_database};
 
 pub struct RESTTestApp {
     pub address: String,
@@ -45,7 +46,7 @@ impl RESTTestApp {
         let (pg_pool, db_name) = configure_postgresql().await;
         let user_store = PostgresUserStore::new(pg_pool);
         let app_state = AppState::new_arc(
-            HashMapBannedTokenStore::new(),
+            RedisBannedTokenStore::new(configure_redis()),
             user_store,
             HashMapTwoFACodeStore::new(),
             MockEmailClient,

@@ -11,9 +11,7 @@ use tokio::sync::RwLock;
 
 use crate::domain::{data_stores::BannedTokenStore, email::Email};
 
-use super::constants::{Epoch, JWT_COOKIE_NAME, JWT_SECRET, PASSWORD_RESET_TOKEN_TTL_SECONDS};
-
-pub const TOKEN_TTL_SECONDS: i64 = 600;
+use super::constants::{Epoch, JWT_COOKIE_NAME, JWT_SECRET, PASSWORD_RESET_TOKEN_TTL_SECONDS, TOKEN_TTL_SECONDS};
 
 #[derive(Debug, PartialEq)]
 pub enum GenerateTokenError {

@@ -6,7 +6,10 @@ use sqlx::{
 };
 use uuid::Uuid;
 
-use auth_service::{get_postgres_pool, utils::constants::DATABASE_URL};
+use auth_service::{
+    get_postgres_pool, get_redis_client,
+    utils::constants::{test, DATABASE_URL, DEFAULT_REDIS_HOST_NAME},
+};
 
 #[derive(Clone, Debug)]
 pub struct DbName(String);
@@ -30,7 +33,7 @@ impl fmt::Display for DbName {
 }
 
 pub async fn configure_postgresql() -> (PgPool, DbName) {
-    let postgresql_conn_url = DATABASE_URL.to_owned();
+    let postgresql_conn_url = test::DATABASE_URL.to_owned();
 
     // We are creating a new database for each test case, and we need to ensure each database has a unique name!
     let db_name = Uuid::new_v4().to_string();
@@ -112,4 +115,11 @@ pub async fn delete_database(db_name: &str) -> Result<(), String> {
         .map_err(|e| format!("Failed to drop the database: {:?}", e))?;
 
     Ok(())
+}
+
+pub fn configure_redis() -> redis::Connection {
+    get_redis_client(DEFAULT_REDIS_HOST_NAME.to_owned())
+        .expect("Failed to get Redis Client")
+        .get_connection()
+        .expect("Failed to get Redis Connection")
 }

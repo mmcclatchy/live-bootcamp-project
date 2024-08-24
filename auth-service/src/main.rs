@@ -1,18 +1,16 @@
 use std::io::Write;
 
 use auth_service::{
-    get_postgres_pool,
+    get_postgres_pool, get_redis_client,
     services::{
         app_state::AppState,
         concrete_app_services::PersistentAppStateType,
-        data_stores::postgres_user_store::PostgresUserStore,
-        hashmap_banned_token_store::HashMapBannedTokenStore,
+        data_stores::{postgres_user_store::PostgresUserStore, redis_banned_token_store::RedisBannedTokenStore},
         hashmap_password_reset_token_store::HashMapPasswordResetTokenStore,
         hashmap_two_fa_code_store::HashMapTwoFACodeStore,
-        // hashmap_user_store::HashmapUserStore,
         mock_email_client::MockEmailClient,
     },
-    utils::constants::{prod, DATABASE_URL},
+    utils::constants::{prod, DATABASE_URL, REDIS_HOST_NAME},
     GRPCApp, RESTApp,
 };
 use log::{error, info};
@@ -32,6 +30,13 @@ async fn configure_postgresql() -> PgPool {
         .expect("[ERROR][main][configure_postgresql] Failed to run migrations!");
 
     pg_pool
+}
+
+fn configure_redis() -> redis::Connection {
+    get_redis_client(REDIS_HOST_NAME.to_owned())
+        .expect("Failed to get Redis Client")
+        .get_connection()
+        .expect("Failed to get Redis Connection")
 }
 
 #[tokio::main]
@@ -55,9 +60,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("Starting auth service");
 
     let pg_pool = configure_postgresql().await;
+    let redis_conn = configure_redis();
 
     let app_state: PersistentAppStateType = AppState::new_arc(
-        HashMapBannedTokenStore::new(),
+        RedisBannedTokenStore::new(redis_conn),
         PostgresUserStore::new(pg_pool),
         HashMapTwoFACodeStore::new(),
         MockEmailClient,

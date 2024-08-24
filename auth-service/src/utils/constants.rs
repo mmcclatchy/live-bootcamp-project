@@ -5,6 +5,7 @@ use std::env as std_env;
 lazy_static! {
     pub static ref DATABASE_URL: String = set_required_env_var(env::DATABASE_URL_ENV_VAR);
     pub static ref JWT_SECRET: String = set_required_env_var(env::JWT_SECRET_ENV_VAR);
+    pub static ref REDIS_HOST_NAME: String = set_default_env_var(env::REDIS_HOST_NAME_ENV_VAR, DEFAULT_REDIS_HOST_NAME);
     pub static ref REST_AUTH_SERVICE_URL: String =
         set_default_env_var(env::REST_AUTH_SERVICE_URL_ENV_VAR, "http://localhost/auth");
 }
@@ -30,6 +31,7 @@ pub mod env {
     pub const DATABASE_URL_ENV_VAR: &str = "DATABASE_URL";
     pub const JWT_SECRET_ENV_VAR: &str = "JWT_SECRET";
     pub const REST_AUTH_SERVICE_URL_ENV_VAR: &str = "REST_AUTH_SERVICE_URL";
+    pub const REDIS_HOST_NAME_ENV_VAR: &str = "REDIS_HOST_NAME";
 }
 
 pub mod prod {
@@ -40,11 +42,12 @@ pub mod prod {
 pub mod test {
     pub const APP_REST_ADDRESS: &str = "127.0.0.1:0";
     pub const APP_GRPC_ADDRESS: &str = "127.0.0.1:0";
-    pub const DATABASE_URL: &str = "postgres://postgres:password@db:5432";
+    pub const DATABASE_URL: &str = "postgres://postgres:password@localhost:5432";
 }
 
 pub const JWT_COOKIE_NAME: &str = "jwt";
 pub const TOKEN_TTL_SECONDS: i64 = 600;
 pub const PASSWORD_RESET_TOKEN_TTL_SECONDS: i64 = 3600;
+pub const DEFAULT_REDIS_HOST_NAME: &str = "127.0.0.1";
 
 pub type Epoch = u32;
