@@ -2,7 +2,10 @@ use std::sync::Arc;
 
 use super::{
     app_state::{AppServices, AppState},
-    data_stores::{postgres_user_store::PostgresUserStore, redis_banned_token_store::RedisBannedTokenStore},
+    data_stores::{
+        postgres_user_store::PostgresUserStore, redis_banned_token_store::RedisBannedTokenStore,
+        redis_two_fa_code_store::RedisTwoFACodeStore,
+    },
     hashmap_banned_token_store::HashMapBannedTokenStore,
     hashmap_password_reset_token_store::HashMapPasswordResetTokenStore,
     hashmap_two_fa_code_store::HashMapTwoFACodeStore,
@@ -26,7 +29,7 @@ pub struct PersistentServices;
 impl AppServices for PersistentServices {
     type BannedTokenStore = RedisBannedTokenStore;
     type UserStore = PostgresUserStore;
-    type TwoFACodeStore = HashMapTwoFACodeStore;
+    type TwoFACodeStore = RedisTwoFACodeStore;
     type PasswordResetTokenStore = HashMapPasswordResetTokenStore;
     type EmailClient = MockEmailClient;
 }

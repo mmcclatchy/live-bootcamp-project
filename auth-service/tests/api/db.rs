@@ -1,9 +1,10 @@
-use std::{fmt, str::FromStr};
+use std::{fmt, str::FromStr, sync::Arc};
 
 use sqlx::{
     postgres::{PgConnectOptions, PgPoolOptions},
     Connection, Executor, PgConnection, PgPool,
 };
+use tokio::sync::RwLock;
 use uuid::Uuid;
 
 use auth_service::{
@@ -117,9 +118,10 @@ pub async fn delete_database(db_name: &str) -> Result<(), String> {
     Ok(())
 }
 
-pub fn configure_redis() -> redis::Connection {
-    get_redis_client(DEFAULT_REDIS_HOST_NAME.to_owned())
+pub fn configure_redis() -> Arc<RwLock<redis::Connection>> {
+    let conn = get_redis_client(DEFAULT_REDIS_HOST_NAME.to_owned())
         .expect("Failed to get Redis Client")
         .get_connection()
-        .expect("Failed to get Redis Connection")
+        .expect("Failed to get Redis Connection");
+    Arc::new(RwLock::new(conn))
 }

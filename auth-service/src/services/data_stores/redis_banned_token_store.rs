@@ -1,9 +1,7 @@
-use std::{
-    fmt,
-    sync::{Arc, RwLock},
-};
+use std::{fmt, sync::Arc};
 
 use redis::{Commands, Connection};
+use tokio::sync::RwLock;
 
 use crate::{
     domain::data_stores::{BannedTokenStore, TokenStoreError},
@@ -22,17 +20,15 @@ impl fmt::Debug for RedisBannedTokenStore {
 }
 
 impl RedisBannedTokenStore {
-    pub fn new(conn: Connection) -> Self {
-        Self {
-            conn: Arc::new(RwLock::new(conn)),
-        }
+    pub fn new(conn: Arc<RwLock<Connection>>) -> Self {
+        Self { conn }
     }
 }
 
 #[async_trait::async_trait]
 impl BannedTokenStore for RedisBannedTokenStore {
     async fn add_token(&mut self, token: String) -> Result<(), TokenStoreError> {
-        let mut conn = self.conn.write().map_err(|_| TokenStoreError::UnexpectedError)?;
+        let mut conn = self.conn.write().await;
         let key = get_key(&token);
         conn.set_ex(key, true, TOKEN_TTL_SECONDS as u64)
             .map_err(|_| TokenStoreError::UnexpectedError)?;
@@ -41,7 +37,7 @@ impl BannedTokenStore for RedisBannedTokenStore {
     }
 
     async fn check_token(&self, token: String) -> Result<(), TokenStoreError> {
-        let mut conn = self.conn.write().map_err(|_| TokenStoreError::UnexpectedError)?;
+        let mut conn = self.conn.write().await;
         let key = get_key(&token);
         match conn.exists(&key).map_err(|_| TokenStoreError::UnexpectedError)? {
             true => Err(TokenStoreError::BannedToken),

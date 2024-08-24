@@ -1,6 +1,7 @@
 use std::fmt;
 
 use rand::Rng;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use super::user::{NewUser, User};
@@ -24,7 +25,7 @@ pub trait BannedTokenStore: Clone + Send + Sync + 'static + fmt::Debug {
 }
 
 #[async_trait::async_trait]
-pub trait TwoFACodeStore: Clone + Send + Sync + 'static + fmt::Debug {
+pub trait TwoFACodeStore: Clone + Send + Sync + 'static {
     async fn add_code(
         &mut self,
         email: Email,
@@ -74,7 +75,7 @@ pub enum TwoFACodeStoreError {
 
 //***********************  Structs  ************************//
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct LoginAttemptId(String);
 
 impl LoginAttemptId {
@@ -104,7 +105,7 @@ impl fmt::Display for LoginAttemptId {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TwoFACode(String);
 
 impl TwoFACode {

@@ -92,6 +92,7 @@ async fn handle_2fa<S: AppServices>(
         .await
         .is_err()
     {
+        println!("[login][post][handle_2fa] Error sending 2FA email");
         return Err(AuthAPIError::UnexpectedError);
     };
 

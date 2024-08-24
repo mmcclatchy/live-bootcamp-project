@@ -1,13 +1,15 @@
-use std::io::Write;
+use std::{io::Write, sync::Arc};
 
 use auth_service::{
     get_postgres_pool, get_redis_client,
     services::{
         app_state::AppState,
         concrete_app_services::PersistentAppStateType,
-        data_stores::{postgres_user_store::PostgresUserStore, redis_banned_token_store::RedisBannedTokenStore},
+        data_stores::{
+            postgres_user_store::PostgresUserStore, redis_banned_token_store::RedisBannedTokenStore,
+            redis_two_fa_code_store::RedisTwoFACodeStore,
+        },
         hashmap_password_reset_token_store::HashMapPasswordResetTokenStore,
-        hashmap_two_fa_code_store::HashMapTwoFACodeStore,
         mock_email_client::MockEmailClient,
     },
     utils::constants::{prod, DATABASE_URL, REDIS_HOST_NAME},
@@ -15,6 +17,7 @@ use auth_service::{
 };
 use log::{error, info};
 use sqlx::PgPool;
+use tokio::sync::RwLock;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
 async fn configure_postgresql() -> PgPool {
@@ -32,11 +35,12 @@ async fn configure_postgresql() -> PgPool {
     pg_pool
 }
 
-fn configure_redis() -> redis::Connection {
-    get_redis_client(REDIS_HOST_NAME.to_owned())
+fn configure_redis() -> Arc<RwLock<redis::Connection>> {
+    let conn = get_redis_client(REDIS_HOST_NAME.to_owned())
         .expect("Failed to get Redis Client")
         .get_connection()
-        .expect("Failed to get Redis Connection")
+        .expect("Failed to get Redis Connection");
+    Arc::new(RwLock::new(conn))
 }
 
 #[tokio::main]
@@ -63,9 +67,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let redis_conn = configure_redis();
 
     let app_state: PersistentAppStateType = AppState::new_arc(
-        RedisBannedTokenStore::new(redis_conn),
+        RedisBannedTokenStore::new(redis_conn.clone()),
         PostgresUserStore::new(pg_pool),
-        HashMapTwoFACodeStore::new(),
+        RedisTwoFACodeStore::new(redis_conn.clone()),
         MockEmailClient,
         HashMapPasswordResetTokenStore::new(),
     );

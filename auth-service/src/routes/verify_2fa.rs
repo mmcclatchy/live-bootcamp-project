@@ -42,7 +42,6 @@ pub async fn post<S: AppServices>(
         Ok(guard) => guard,
         Err(_) => return Err(AuthAPIError::UnexpectedError),
     };
-    println!("[verify-2fa][post] {:?}", two_fa_code_store);
 
     let (stored_attempt_id, stored_2fa_code) = match two_fa_code_store.get_code(&email).await {
         Ok(result) => result,

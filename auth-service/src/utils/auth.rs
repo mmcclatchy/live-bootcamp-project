@@ -80,7 +80,8 @@ pub async fn validate_token_structure(token: &str) -> Result<Claims, GenerateTok
     ) {
         Ok(data) => data,
         Err(error) => {
-            error!("[ERROR][validate_token] {:?}", error);
+            error!("[ERROR][validate_token_structure] {:?}", error);
+            println!("[ERROR][validate_token_structure] {:?}", error);
             return Err(GenerateTokenError::TokenError(error));
         }
     };

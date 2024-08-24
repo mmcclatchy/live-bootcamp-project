@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use auth_service::services::data_stores::redis_banned_token_store::RedisBannedTokenStore;
+use auth_service::services::data_stores::redis_two_fa_code_store::RedisTwoFACodeStore;
 use reqwest::cookie::Jar;
 use serde::Serialize;
 use serde_json::json;
@@ -45,10 +46,11 @@ impl RESTTestApp {
     pub async fn new() -> Self {
         let (pg_pool, db_name) = configure_postgresql().await;
         let user_store = PostgresUserStore::new(pg_pool);
+        let redis_conn = configure_redis();
         let app_state = AppState::new_arc(
-            RedisBannedTokenStore::new(configure_redis()),
+            RedisBannedTokenStore::new(redis_conn.clone()),
             user_store,
-            HashMapTwoFACodeStore::new(),
+            RedisTwoFACodeStore::new(redis_conn.clone()),
             MockEmailClient,
             HashMapPasswordResetTokenStore::new(),
         );
@@ -255,15 +257,16 @@ pub async fn wait_for_user<'a, T: UserStore>(
 
 pub async fn create_app_with_logged_in_token() -> (RESTTestApp, String) {
     let app = RESTTestApp::new().await;
+    let email = get_random_email();
     let signup_body = json!({
-        "email": "test@example.com",
+        "email": email,
         "password": "P@ssw0rd",
         "requires2FA": false,
     });
     let signup_response = app.post_signup(&signup_body).await;
     assert_eq!(signup_response.status(), 201);
     let login_body = json!({
-        "email": "test@example.com",
+        "email": email,
         "password": "P@ssw0rd",
     });
     let login_response = app.post_login(&login_body).await;
@@ -274,6 +277,7 @@ pub async fn create_app_with_logged_in_token() -> (RESTTestApp, String) {
         .expect("[ERROR][Test Helper][create_app_with_logged_in_token] No auth cookie returned");
     assert!(!cookie.value().is_empty());
     let token = cookie.value().to_string();
+
     (app, token)
 }
 
