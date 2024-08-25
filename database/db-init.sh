@@ -13,7 +13,7 @@ done
 echo "PostgreSQL started"
 
 # Run your cleanup script
-psql -U postgres -f /docker-entrypoint-initdb.d/test_db_cleanup.sql
+psql -U postgres -f /scripts/test_db_cleanup.sql
 
 # Keep the container running
 tail -f /dev/null

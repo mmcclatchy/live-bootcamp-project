@@ -23,14 +23,19 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilte
 async fn configure_postgresql() -> PgPool {
     #[allow(clippy::to_string_in_format_args, clippy::unnecessary_to_owned)]
     let prod_db_url = format!("{}/rust-bc", DATABASE_URL.to_string());
+    println!("[main][configure_postgresql] Attempting to connect to PostgreSQL at: {prod_db_url}");
     let pg_pool = get_postgres_pool(&prod_db_url)
         .await
         .expect("[ERROR][main][configure_postgresql] Failed to create Postgres connection pool!");
+
+    println!("[main][configure_postgresql] Running migrations.");
 
     sqlx::migrate!()
         .run(&pg_pool)
         .await
         .expect("[ERROR][main][configure_postgresql] Failed to run migrations!");
+
+    println!("[main][configure_postgresql] Connection and migrations successful.");
 
     pg_pool
 }
