@@ -1,5 +1,4 @@
 use std::error::Error;
-use std::io::Write;
 use std::sync::Arc;
 
 use axum::{
@@ -17,9 +16,12 @@ use log::info;
 use serde::{Deserialize, Serialize};
 use tower_http::{cors::CorsLayer, services::ServeDir, trace::TraceLayer};
 
-use crate::domain::error::AuthAPIError;
 use crate::routes;
 use crate::services::app_state::{AppServices, AppState};
+use crate::{
+    domain::error::AuthAPIError,
+    utils::tracing::{make_span_with_request_id, on_request, on_response},
+};
 
 async fn log_request(req: Request<Body>, next: Next) -> impl IntoResponse {
     info!("Received request: {} {}", req.method(), req.uri());
@@ -64,7 +66,13 @@ impl RESTApp {
             .route("/reset-password", post(routes::reset_password::post))
             .route("/reset-password", get(routes::reset_password::get))
             .with_state(app_state)
-            .layer(cors);
+            .layer(cors)
+            .layer(
+                TraceLayer::new_for_http()
+                    .make_span_with(make_span_with_request_id)
+                    .on_request(on_request)
+                    .on_response(on_response),
+            );
 
         let listener = tokio::net::TcpListener::bind(&address).await?;
         let address = listener.local_addr()?.to_string();
@@ -75,14 +83,7 @@ impl RESTApp {
     }
 
     pub async fn run(self) -> Result<(), std::io::Error> {
-        eprintln!("About to start REST server on {}", self.address);
-        std::io::stderr().flush().unwrap();
-
-        info!("REST server listening on {}", self.address);
-
-        eprintln!("Listener bound successfully");
-        std::io::stderr().flush().unwrap();
-
+        tracing::info!("REST server listening on {}", self.address);
         self.server.await
     }
 }

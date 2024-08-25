@@ -42,20 +42,18 @@ pub struct Claims {
     pub purpose: TokenPurpose,
 }
 
+#[tracing::instrument(name = "Generate Auth Cookie", skip_all)]
 pub fn generate_auth_cookie(email: &Email) -> Result<Cookie<'static>, GenerateTokenError> {
     let token = generate_auth_token(email)?;
-    Ok(create_auth_cookie(token))
-}
-
-pub fn create_auth_cookie(token: String) -> Cookie<'static> {
     let cookie = Cookie::build((JWT_COOKIE_NAME, token))
         .path("/")
         .http_only(true)
         .same_site(SameSite::Lax)
         .build();
-    cookie
+    Ok(cookie)
 }
 
+#[tracing::instrument(name = "Generate Auth Token", skip_all)]
 pub fn generate_auth_token(email: &Email) -> Result<String, GenerateTokenError> {
     let delta = chrono::Duration::try_seconds(TOKEN_TTL_SECONDS).ok_or(GenerateTokenError::UnexpectedError)?;
     let exp = Utc::now()
@@ -72,6 +70,7 @@ pub fn generate_auth_token(email: &Email) -> Result<String, GenerateTokenError> 
     create_token(&claims).map_err(GenerateTokenError::TokenError)
 }
 
+#[tracing::instrument(name = "Validate Token", skip_all)]
 pub async fn validate_token_structure(token: &str) -> Result<Claims, GenerateTokenError> {
     let data = match decode::<Claims>(
         token,
@@ -89,6 +88,7 @@ pub async fn validate_token_structure(token: &str) -> Result<Claims, GenerateTok
     Ok(claims)
 }
 
+#[tracing::instrument(name = "Validate Token and Check if Banned", skip_all)]
 pub async fn validate_token<T: BannedTokenStore>(
     banned_token_store: Arc<RwLock<T>>,
     token: &str,
@@ -102,6 +102,7 @@ pub async fn validate_token<T: BannedTokenStore>(
     Ok(claims)
 }
 
+#[tracing::instrument(name = "Create Token", skip_all)]
 pub fn create_token(claims: &Claims) -> Result<String, jsonwebtoken::errors::Error> {
     encode(
         &jsonwebtoken::Header::default(),
@@ -110,6 +111,7 @@ pub fn create_token(claims: &Claims) -> Result<String, jsonwebtoken::errors::Err
     )
 }
 
+#[tracing::instrument(name = "Generate Password Reset Token", skip_all)]
 pub fn generate_password_reset_token(email: &Email) -> Result<String, GenerateTokenError> {
     let delta =
         chrono::Duration::try_seconds(PASSWORD_RESET_TOKEN_TTL_SECONDS).ok_or(GenerateTokenError::UnexpectedError)?;
@@ -127,6 +129,7 @@ pub fn generate_password_reset_token(email: &Email) -> Result<String, GenerateTo
     create_token(&claims).map_err(GenerateTokenError::TokenError)
 }
 
+#[tracing::instrument(name = "Validate Password Reset Token", skip_all)]
 pub async fn validate_password_reset_token<T: BannedTokenStore>(
     banned_token_store: Arc<RwLock<T>>,
     token: &str,
@@ -145,6 +148,7 @@ pub async fn validate_password_reset_token<T: BannedTokenStore>(
     Ok((email, claims))
 }
 
+#[tracing::instrument(name = "Compute Hash (Asynchronous)", skip_all)]
 pub async fn async_compute_password_hash(password: &str) -> Result<String, Box<dyn Error + Send + Sync>> {
     let password = password.to_string();
     let password_hash = tokio::task::spawn_blocking(|| compute_password_hash(password)).await??;
@@ -152,6 +156,7 @@ pub async fn async_compute_password_hash(password: &str) -> Result<String, Box<d
     Ok(password_hash)
 }
 
+#[tracing::instrument(name = "Compute Hash (Synchronous)", skip_all)]
 pub fn compute_password_hash(password: String) -> Result<String, Box<dyn Error + Send + Sync>> {
     let salt: SaltString = SaltString::generate(&mut rand::thread_rng());
     let argon2 = Argon2::new(Algorithm::Argon2id, Version::V0x13, Params::new(15000, 2, 1, None)?);
@@ -174,17 +179,6 @@ mod tests {
         let cookie = generate_auth_cookie(&email).unwrap();
         assert_eq!(cookie.name(), JWT_COOKIE_NAME);
         assert_eq!(cookie.value().split('.').count(), 3);
-        assert_eq!(cookie.path(), Some("/"));
-        assert_eq!(cookie.http_only(), Some(true));
-        assert_eq!(cookie.same_site(), Some(SameSite::Lax));
-    }
-
-    #[tokio::test]
-    async fn test_create_auth_cookie() {
-        let token = "test_token".to_owned();
-        let cookie = create_auth_cookie(token.clone());
-        assert_eq!(cookie.name(), JWT_COOKIE_NAME);
-        assert_eq!(cookie.value(), token);
         assert_eq!(cookie.path(), Some("/"));
         assert_eq!(cookie.http_only(), Some(true));
         assert_eq!(cookie.same_site(), Some(SameSite::Lax));

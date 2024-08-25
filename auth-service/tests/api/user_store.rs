@@ -2,7 +2,7 @@ use auth_service::domain::{
     data_stores::{UserStore, UserStoreError},
     email::Email,
     password::Password,
-    user::{NewUser, User},
+    user::NewUser,
 };
 
 use crate::helpers::RESTTestApp;

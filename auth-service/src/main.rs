@@ -12,13 +12,15 @@ use auth_service::{
         },
         mock_email_client::MockEmailClient,
     },
-    utils::constants::{prod, DATABASE_URL, REDIS_HOST_NAME},
+    utils::{
+        constants::{prod, DATABASE_URL, REDIS_HOST_NAME},
+        tracing::init_tracing,
+    },
     GRPCApp, RESTApp,
 };
 use log::{error, info};
 use sqlx::PgPool;
 use tokio::sync::RwLock;
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
 async fn configure_postgresql() -> PgPool {
     #[allow(clippy::to_string_in_format_args, clippy::unnecessary_to_owned)]
@@ -50,19 +52,7 @@ fn configure_redis() -> Arc<RwLock<redis::Connection>> {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    env_logger::init();
-    let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
-
-    tracing_subscriber::registry()
-        .with(env_filter)
-        .with(tracing_subscriber::fmt::layer().with_writer(std::io::stderr))
-        .try_init()
-        .unwrap_or_else(|e| {
-            eprintln!(
-                "[ERROR][tracing_subscriber::registry] Failed to initialize tracing: {:?}",
-                e
-            )
-        });
+    init_tracing();
 
     eprintln!("Tracing initialized successfully");
     std::io::stderr().flush().unwrap();

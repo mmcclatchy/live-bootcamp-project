@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use axum::http::StatusCode;
 use axum::{extract::State, Json};
-use log::info;
 use serde::{Deserialize, Serialize};
 
 use crate::domain::user::NewUser;
@@ -27,12 +26,11 @@ pub struct SignupResponse {
     message: String,
 }
 
+#[tracing::instrument(name = "Signup", skip_all, err(Debug))]
 pub async fn post<S: AppServices>(
     State(state): State<Arc<AppState<S>>>,
     Json(payload): Json<SignupRequest>,
 ) -> Result<(StatusCode, Json<SignupResponse>), AuthAPIError> {
-    info!("[REST][POST][/signup] Received request: {:?}", payload);
-
     let email = Email::parse(payload.email).map_err(AuthAPIError::InvalidEmail)?;
     let password = Password::parse(payload.password)
         .await

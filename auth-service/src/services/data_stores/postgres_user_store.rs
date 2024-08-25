@@ -23,13 +23,17 @@ impl PostgresUserStore {
 
 #[async_trait::async_trait]
 impl UserStore for PostgresUserStore {
+    #[tracing::instrument(name = "Adding user to PostgreSQL", skip_all)]
     async fn add_user(&mut self, user: NewUser) -> Result<(), UserStoreError> {
         let password_hash = async_compute_password_hash(user.password.as_ref())
             .await
             .map_err(|_| UserStoreError::UnexpectedError)?;
         let result = sqlx::query_as!(
             DbUser,
-            "INSERT INTO users (email, password_hash, requires_2fa) VALUES ($1, $2, $3)",
+            "
+INSERT INTO users (email, password_hash, requires_2fa)
+VALUES ($1, $2, $3)
+            ",
             user.email.as_ref(),
             password_hash,
             user.requires_2fa
@@ -46,20 +50,34 @@ impl UserStore for PostgresUserStore {
         }
     }
 
+    #[tracing::instrument(name = "Retrieving user from PostgreSQL", skip_all)]
     async fn get_user(&self, email: &Email) -> Result<User, UserStoreError> {
-        let user = sqlx::query_as!(DbUser, "SELECT * FROM users WHERE email = $1", email.as_ref())
-            .fetch_one(&self.pool)
-            .await
-            .map_err(|_| UserStoreError::UserNotFound)?;
+        let user = sqlx::query_as!(
+            DbUser,
+            "
+SELECT *
+FROM users
+WHERE email = $1
+            ",
+            email.as_ref()
+        )
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|_| UserStoreError::UserNotFound)?;
         Ok(user.to_user())
     }
 
+    #[tracing::instrument(name = "Updating user password in PostgreSQL", skip_all)]
     async fn update_password(&mut self, email: &Email, password: Password) -> Result<(), UserStoreError> {
         let password_hash = async_compute_password_hash(password.as_ref())
             .await
             .map_err(|_| UserStoreError::UnexpectedError)?;
         let result = sqlx::query!(
-            "UPDATE users SET password_hash = $1 WHERE email = $2",
+            "
+UPDATE users
+SET password_hash = $1
+WHERE email = $2
+            ",
             password_hash,
             email.as_ref(),
         )
@@ -78,11 +96,20 @@ impl UserStore for PostgresUserStore {
         }
     }
 
+    #[tracing::instrument(name = "Verify password hash", skip_all)]
     async fn validate_user(&self, email: &Email, password: &Password) -> Result<User, UserStoreError> {
-        let user = sqlx::query_as!(DbUser, "SELECT * FROM users WHERE email = $1", email.as_ref())
-            .fetch_one(&self.pool)
-            .await
-            .map_err(|_| UserStoreError::UserNotFound)?;
+        let user = sqlx::query_as!(
+            DbUser,
+            "
+SELECT *
+FROM users
+WHERE email = $1
+                ",
+            email.as_ref()
+        )
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|_| UserStoreError::UserNotFound)?;
         user.verify_password(password)?;
         Ok(user.to_user())
     }

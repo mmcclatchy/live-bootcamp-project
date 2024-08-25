@@ -8,9 +8,9 @@ use auth_service::{
         data_stores::{TwoFACodeStore, UserStore},
         email::Email,
         password::Password,
-        user::{DbUser, NewUser, User},
+        user::NewUser,
     },
-    routes::login::{LoginResponse, TwoFactorAuthResponse},
+    routes::login::TwoFactorAuthResponse,
     services::app_state::{AppServices, AppState},
     utils::{
         auth::{validate_token, TokenPurpose},
@@ -25,16 +25,6 @@ fn create_login_body(email: &str, password: &str) -> Value {
         "email": email,
         "password": password,
     })
-}
-
-async fn create_db_user(email: &str, password: &str, requires_2fa: bool) -> DbUser {
-    let email = Email::parse(email.to_string()).unwrap();
-    let password = Password::parse(password.to_string()).await.unwrap();
-    DbUser {
-        email: email.to_string(),
-        password_hash: password.to_string(),
-        requires_2fa,
-    }
 }
 
 async fn create_new_user(email: &str, password: &str, requires_2fa: bool) -> NewUser {
