@@ -4,6 +4,7 @@ use axum::response::{Html, IntoResponse};
 use axum::{extract::State, Json};
 use axum_extra::extract::CookieJar;
 use hyper::StatusCode;
+use secrecy::Secret;
 use serde::{Deserialize, Serialize};
 
 use crate::services::app_state::{AppServices, AppState};
@@ -20,7 +21,7 @@ use crate::{
 #[derive(Debug, Deserialize)]
 pub struct ResetPasswordRequest {
     token: String,
-    new_password: String,
+    new_password: Secret<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize, PartialEq)]

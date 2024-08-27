@@ -6,6 +6,7 @@ use axum::{extract::State, Json};
 use axum_extra::extract::CookieJar;
 use color_eyre::eyre::eyre;
 use log::info;
+use secrecy::Secret;
 use serde::{Deserialize, Serialize};
 
 use crate::domain::data_stores::{LoginAttemptId, TwoFACode, TwoFACodeStore};
@@ -17,7 +18,7 @@ use crate::utils::auth::generate_auth_cookie;
 #[derive(Deserialize, Debug)]
 pub struct LoginRequest {
     pub email: String,
-    pub password: String,
+    pub password: Secret<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

@@ -1,5 +1,6 @@
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use color_eyre::eyre::{Context, Result};
+use secrecy::{ExposeSecret, Secret};
 
 use crate::{
     domain::{email::Email, password::Password},
@@ -19,10 +20,10 @@ pub struct User {
     pub requires_2fa: bool,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct DbUser {
     pub email: String,
-    pub password_hash: String,
+    pub password_hash: Secret<String>,
     pub requires_2fa: bool,
 }
 
@@ -39,10 +40,10 @@ impl NewUser {
 impl DbUser {
     #[tracing::instrument(name = "Verify User Password", skip_all)]
     pub fn verify_password(&self, password_attempt: &Password) -> Result<()> {
-        let parsed_hash = PasswordHash::new(&self.password_hash)?;
+        let parsed_hash = PasswordHash::new(self.password_hash.expose_secret())?;
 
         Argon2::default()
-            .verify_password(password_attempt.as_ref().as_bytes(), &parsed_hash)
+            .verify_password(password_attempt.as_ref().expose_secret().as_bytes(), &parsed_hash)
             .wrap_err("Failed to verify password hash")
     }
 
@@ -55,9 +56,15 @@ impl DbUser {
 
     // TODO: This is only used in HashMapUserStore. Remove when gRPC is updated to use PostgresUserStore
     pub async fn update_password(&mut self, password: &Password) -> Result<()> {
-        let new_password_hash = async_compute_password_hash(password.as_ref()).await?;
+        let new_password_hash = async_compute_password_hash(password.as_ref().clone()).await?;
         self.password_hash = new_password_hash;
         Ok(())
+    }
+}
+
+impl PartialEq for DbUser {
+    fn eq(&self, other: &Self) -> bool {
+        self.password_hash.expose_secret() == other.password_hash.expose_secret()
     }
 }
 
@@ -66,18 +73,19 @@ mod tests {
     use super::*;
     use argon2::password_hash::{PasswordHasher, SaltString};
 
-    fn create_password_hash(password: &str) -> String {
+    fn create_password_hash(password: &str) -> Secret<String> {
         let salt: SaltString = SaltString::generate(&mut rand::thread_rng());
-        Argon2::default()
+        let password_hash = Argon2::default()
             .hash_password(password.as_bytes(), &salt)
             .unwrap()
-            .to_string()
+            .to_string();
+        Secret::new(password_hash)
     }
 
     #[tokio::test]
     async fn test_new_user_creation() {
         let email = Email::parse("test@example.com".to_string()).unwrap();
-        let password = Password::parse("P@ssw0rd123".to_string()).await.unwrap();
+        let password = Password::parse(Secret::new("P@ssw0rd123".to_string())).await.unwrap();
         let requires_2fa = true;
 
         let new_user = NewUser::new(email.clone(), password.clone(), requires_2fa);
@@ -98,7 +106,7 @@ mod tests {
             requires_2fa: false,
         };
 
-        let password_attempt = Password::parse(password.to_string()).await.unwrap();
+        let password_attempt = Password::parse(Secret::new(password.to_string())).await.unwrap();
         assert!(db_user.verify_password(&password_attempt).is_ok());
     }
 
@@ -113,7 +121,7 @@ mod tests {
             requires_2fa: false,
         };
 
-        let wrong_password = Password::parse("Wr0ngP@ssw0rd".to_string()).await.unwrap();
+        let wrong_password = Password::parse(Secret::new("Wr0ngP@ssw0rd".to_string())).await.unwrap();
         // assert_eq!(
         //     db_user.verify_password(&wrong_password),
         //     Err(UserStoreError::InvalidCredentials)
@@ -125,7 +133,7 @@ mod tests {
     async fn test_db_user_to_user() {
         let db_user = DbUser {
             email: "test@example.com".to_string(),
-            password_hash: "some_hash".to_string(),
+            password_hash: Secret::new("some_hash".to_string()),
             requires_2fa: true,
         };
 
@@ -143,7 +151,7 @@ mod tests {
     //         requires_2fa: false,
     //     };
 
-    //     let new_password = Password::parse("NewP@ssw0rd123".to_string()).await.unwrap();
+    //     let new_password = Password::parse(Secret::new("NewP@ssw0rd123".to_string())).await.unwrap();
     //     assert!(db_user.update_password(&new_password).is_ok());
     //     assert_eq!(db_user.password_hash, new_password.to_string());
     // }
@@ -153,7 +161,7 @@ mod tests {
     async fn test_db_user_to_user_with_invalid_email() {
         let db_user = DbUser {
             email: "invalid_email".to_string(),
-            password_hash: "some_hash".to_string(),
+            password_hash: Secret::new("some_hash".to_string()),
             requires_2fa: false,
         };
 

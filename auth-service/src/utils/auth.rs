@@ -7,6 +7,7 @@ use chrono::Utc;
 use color_eyre::eyre::{eyre, Report, Result};
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Validation};
 use log::error;
+use secrecy::{ExposeSecret, Secret};
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 
@@ -159,19 +160,20 @@ pub async fn validate_password_reset_token<T: BannedTokenStore>(
 }
 
 #[tracing::instrument(name = "Compute Password Hash", skip_all)]
-pub async fn async_compute_password_hash(password: &str) -> Result<String> {
-    let password = password.to_string();
+pub async fn async_compute_password_hash(password: Secret<String>) -> Result<Secret<String>> {
     let password_hash = tokio::task::spawn_blocking(|| compute_password_hash(password)).await??;
 
     Ok(password_hash)
 }
 
-pub fn compute_password_hash(password: String) -> Result<String> {
+pub fn compute_password_hash(password: Secret<String>) -> Result<Secret<String>> {
     let salt: SaltString = SaltString::generate(&mut rand::thread_rng());
     let argon2 = Argon2::new(Algorithm::Argon2id, Version::V0x13, Params::new(15000, 2, 1, None)?);
-    let hash = argon2.hash_password(password.as_bytes(), &salt)?.to_string();
+    let hash = argon2
+        .hash_password(password.expose_secret().as_bytes(), &salt)?
+        .to_string();
 
-    Ok(hash)
+    Ok(Secret::new(hash))
 }
 
 //*******************************  TESTS  *******************************//

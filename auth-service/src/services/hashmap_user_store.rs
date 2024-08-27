@@ -40,7 +40,7 @@ impl UserStore for HashmapUserStore {
         match self.users.get(&email) {
             Some(_) => Err(UserStoreError::UserAlreadyExists),
             None => {
-                let password_hash = async_compute_password_hash(user.password.as_ref())
+                let password_hash = async_compute_password_hash(user.password.as_ref().clone())
                     .await
                     .map_err(UserStoreError::UnexpectedError)?;
                 let user = DbUser {
@@ -95,6 +95,8 @@ impl Default for HashmapUserStore {
 
 #[cfg(test)]
 mod tests {
+    use secrecy::Secret;
+
     use super::*;
 
     fn get_test_email() -> Email {
@@ -102,7 +104,7 @@ mod tests {
     }
 
     async fn get_test_password() -> Password {
-        Password::parse("P@assword123".to_string()).await.unwrap()
+        Password::parse(Secret::new("P@assword123".to_string())).await.unwrap()
     }
 
     async fn create_new_user() -> NewUser {
@@ -116,7 +118,7 @@ mod tests {
     async fn create_db_user() -> DbUser {
         DbUser {
             email: get_test_email().to_string(),
-            password_hash: get_test_password().await.to_string(),
+            password_hash: get_test_password().await.as_ref().clone(),
             requires_2fa: false,
         }
     }
@@ -184,7 +186,7 @@ mod tests {
     async fn test_validate_user_raises_error_when_password_does_not_match() {
         let store = get_store_with_test_user().await;
         let email = get_test_email();
-        let incorrect_password = Password::parse("Inc0rrect!".to_string()).await.unwrap();
+        let incorrect_password = Password::parse(Secret::new("Inc0rrect!".to_string())).await.unwrap();
         let result = store.validate_user(&email, &incorrect_password).await;
         // assert_eq!(result, Err(UserStoreError::InvalidCredentials));
         assert!(result.is_err())

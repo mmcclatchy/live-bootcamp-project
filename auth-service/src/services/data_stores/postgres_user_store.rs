@@ -1,4 +1,5 @@
 use color_eyre::eyre;
+use secrecy::ExposeSecret;
 use sqlx::PgPool;
 
 use crate::{
@@ -26,7 +27,7 @@ impl PostgresUserStore {
 impl UserStore for PostgresUserStore {
     #[tracing::instrument(name = "Adding user to PostgreSQL", skip_all)]
     async fn add_user(&mut self, user: NewUser) -> Result<(), UserStoreError> {
-        let password_hash = async_compute_password_hash(user.password.as_ref())
+        let password_hash = async_compute_password_hash(user.password.as_ref().clone())
             .await
             .map_err(UserStoreError::UnexpectedError)?;
         let result = sqlx::query_as!(
@@ -36,7 +37,7 @@ impl UserStore for PostgresUserStore {
             VALUES ($1, $2, $3)
             "#,
             user.email.as_ref(),
-            password_hash,
+            password_hash.expose_secret(),
             user.requires_2fa
         )
         .execute(&self.pool)
@@ -70,7 +71,7 @@ impl UserStore for PostgresUserStore {
 
     #[tracing::instrument(name = "Updating user password in PostgreSQL", skip_all)]
     async fn update_password(&mut self, email: &Email, password: Password) -> Result<(), UserStoreError> {
-        let password_hash = async_compute_password_hash(password.as_ref())
+        let password_hash = async_compute_password_hash(password.as_ref().clone())
             .await
             .map_err(UserStoreError::UnexpectedError)?;
         let result = sqlx::query!(
@@ -79,7 +80,7 @@ impl UserStore for PostgresUserStore {
             SET password_hash = $1
             WHERE email = $2
             "#,
-            password_hash,
+            password_hash.expose_secret(),
             email.as_ref(),
         )
         .execute(&self.pool)

@@ -11,7 +11,7 @@ pub enum AuthAPIError {
     #[error("Invalid login attempt id")]
     InvalidLoginAttemptId,
     #[error("Invalid password")]
-    InvalidPassword(String),
+    InvalidPassword(#[source] Report),
     #[error("Invalid auth token")]
     InvalidToken,
     #[error("Invalid two factor authentication code")]
@@ -25,25 +25,6 @@ pub enum AuthAPIError {
     #[error("User not found")]
     UserNotFound,
 }
-
-// impl fmt::Display for AuthAPIError {
-//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//         match self {
-//             AuthAPIError::InvalidCredentials => write!(f, "Invalid credentials"),
-//             AuthAPIError::InvalidEmail(msg) => write!(f, "Invalid email: {}", msg),
-//             AuthAPIError::InvalidLoginAttemptId => write!(f, "Invalid login attempt id"),
-//             AuthAPIError::InvalidPassword(msg) => write!(f, "Invalid password: {}", msg),
-//             AuthAPIError::InvalidToken => write!(f, "Invalid auth token"),
-//             AuthAPIError::InvalidTwoFactorAuthCode => {
-//                 write!(f, "Invalid two factor authentication code")
-//             }
-//             AuthAPIError::MissingToken => write!(f, "Missing auth token"),
-//             AuthAPIError::UserAlreadyExists => write!(f, "User already exists"),
-//             AuthAPIError::UnexpectedError => write!(f, "Unexpected error occurred"),
-//             AuthAPIError::UserNotFound => write!(f, "User not found"),
-//         }
-//     }
-// }
 
 impl From<AuthAPIError> for tonic::Status {
     fn from(error: AuthAPIError) -> Self {

@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use rstest::rstest;
+use secrecy::{ExposeSecret, Secret};
 use serde_json::{json, Value};
 
 use auth_service::{
@@ -29,7 +30,7 @@ fn create_login_body(email: &str, password: &str) -> Value {
 
 async fn create_new_user(email: &str, password: &str, requires_2fa: bool) -> NewUser {
     let email = Email::parse(email.to_string()).unwrap();
-    let password = Password::parse(password.to_string()).await.unwrap();
+    let password = Password::parse(Secret::new(password.to_string())).await.unwrap();
     NewUser {
         email,
         password,
@@ -107,7 +108,7 @@ async fn should_return_401_if_incorrect_credentials() {
 async fn should_return_200_if_valid_credentials_and_2fs_disabled() {
     let mut app = RESTTestApp::new().await;
     let user = create_existing_user(app.app_state.clone(), false).await;
-    let login_body = create_login_body(user.email.as_ref(), user.password.as_ref());
+    let login_body = create_login_body(user.email.as_ref(), user.password.as_ref().expose_secret());
     let login_response = app.post_login(&login_body).await;
 
     println!(
@@ -142,7 +143,7 @@ async fn should_return_200_if_valid_credentials_and_2fs_disabled() {
 async fn should_return_206_if_valid_credentials_and_2fa_enabled() {
     let mut app = RESTTestApp::new().await;
     let user = create_existing_user(app.app_state.clone(), true).await;
-    let login_body = create_login_body(user.email.as_ref(), user.password.as_ref());
+    let login_body = create_login_body(user.email.as_ref(), user.password.as_ref().expose_secret());
 
     println!("[TEST] {:?}", user);
 

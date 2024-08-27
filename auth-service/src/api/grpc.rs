@@ -2,6 +2,7 @@ use std::sync::Arc;
 use std::{error::Error, net::SocketAddr};
 
 use log::info;
+use secrecy::Secret;
 use tonic::{Request, Response, Status};
 
 use crate::domain::user::NewUser;
@@ -34,7 +35,7 @@ impl<S: AppServices + 'static> AuthService for GRPCAuthService<S> {
 
         let req = request.into_inner();
         let email = Email::parse(req.email).map_err(AuthAPIError::InvalidEmail)?;
-        let password = Password::parse(req.password)
+        let password = Password::parse(Secret::new(req.password))
             .await
             .map_err(AuthAPIError::InvalidPassword)?;
 

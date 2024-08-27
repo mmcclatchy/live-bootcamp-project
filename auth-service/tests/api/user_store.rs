@@ -4,6 +4,7 @@ use auth_service::domain::{
     password::Password,
     user::NewUser,
 };
+use secrecy::Secret;
 
 use crate::helpers::RESTTestApp;
 
@@ -13,7 +14,7 @@ async fn test_add_user() {
     let mut user_store = app.app_state.user_store.write().await;
 
     let email = Email::parse("test@example.com".to_string()).unwrap();
-    let password = Password::parse("P@ssw0rd123".to_string()).await.unwrap();
+    let password = Password::parse(Secret::new("P@ssw0rd123".to_string())).await.unwrap();
     let new_user = NewUser::new(email.clone(), password.clone(), false);
 
     let result = user_store.add_user(new_user).await;
@@ -33,7 +34,7 @@ async fn test_get_user() {
     let mut user_store = app.app_state.user_store.write().await;
 
     let email = Email::parse("test@example.com".to_string()).unwrap();
-    let password = Password::parse("P@ssw0rd123".to_string()).await.unwrap();
+    let password = Password::parse(Secret::new("P@ssw0rd123".to_string())).await.unwrap();
     let new_user = NewUser::new(email.clone(), password, false);
 
     user_store.add_user(new_user).await.unwrap();
@@ -57,12 +58,14 @@ async fn test_update_password() {
     let mut user_store = app.app_state.user_store.write().await;
 
     let email = Email::parse("test@example.com".to_string()).unwrap();
-    let password = Password::parse("P@ssw0rd123".to_string()).await.unwrap();
+    let password = Password::parse(Secret::new("P@ssw0rd123".to_string())).await.unwrap();
     let new_user = NewUser::new(email.clone(), password.clone(), false);
 
     user_store.add_user(new_user).await.unwrap();
 
-    let new_password = Password::parse("NewP@ssw0rd123".to_string()).await.unwrap();
+    let new_password = Password::parse(Secret::new("NewP@ssw0rd123".to_string()))
+        .await
+        .unwrap();
     let result = user_store.update_password(&email, new_password.clone()).await;
     assert!(result.is_ok());
 
@@ -87,7 +90,7 @@ async fn test_validate_user() {
     let mut user_store = app.app_state.user_store.write().await;
 
     let email = Email::parse("test@example.com".to_string()).unwrap();
-    let password = Password::parse("P@ssw0rd123".to_string()).await.unwrap();
+    let password = Password::parse(Secret::new("P@ssw0rd123".to_string())).await.unwrap();
     let new_user = NewUser::new(email.clone(), password.clone(), false);
 
     user_store.add_user(new_user).await.unwrap();
@@ -95,7 +98,7 @@ async fn test_validate_user() {
     let result = user_store.validate_user(&email, &password).await;
     assert!(result.is_ok());
 
-    let wrong_password = Password::parse("WrongP@ssw0rd".to_string()).await.unwrap();
+    let wrong_password = Password::parse(Secret::new("WrongP@ssw0rd".to_string())).await.unwrap();
     let result = user_store.validate_user(&email, &wrong_password).await;
     assert!(matches!(result, Err(e) if e.to_string() == "Failed to verify password hash"));
 

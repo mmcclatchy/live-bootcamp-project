@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use axum::http::StatusCode;
 use axum::{extract::State, Json};
+use secrecy::Secret;
 use serde::{Deserialize, Serialize};
 
 use crate::domain::user::NewUser;
@@ -16,7 +17,7 @@ use crate::services::app_state::{AppServices, AppState};
 #[derive(Deserialize, Debug)]
 pub struct SignupRequest {
     email: String,
-    password: String,
+    password: Secret<String>,
     #[serde(rename = "requires2FA")]
     requires_2fa: bool,
 }
