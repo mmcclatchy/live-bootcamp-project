@@ -1,7 +1,5 @@
 use auth_service::{
-    api::rest::ErrorResponse,
-    domain::data_stores::{BannedTokenStore, TokenStoreError},
-    utils::constants::JWT_COOKIE_NAME,
+    api::rest::ErrorResponse, domain::data_stores::BannedTokenStore, utils::constants::JWT_COOKIE_NAME,
 };
 use reqwest::Url;
 
@@ -20,7 +18,7 @@ async fn should_return_200_if_valid_jwt_cookie() {
     let app_state = &app.app_state;
     let banned_token_store = app_state.banned_token_store.read().await;
     let check_token_result = banned_token_store.check_token(token).await;
-    assert_eq!(check_token_result, Err(TokenStoreError::BannedToken));
+    assert!(check_token_result.is_err_and(|e| e.to_string() == "Banned token"));
 
     drop(banned_token_store);
     app.clean_up().await.unwrap();

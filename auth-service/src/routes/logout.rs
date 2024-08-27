@@ -27,7 +27,7 @@ pub async fn post<S: AppServices>(
     banned_token_store
         .add_token(token)
         .await
-        .map_err(|_| AuthAPIError::UnexpectedError)?;
+        .map_err(|e| AuthAPIError::UnexpectedError(e.into()))?;
 
     Ok((jar, StatusCode::OK))
 }

@@ -41,7 +41,7 @@ pub async fn post<S: AppServices>(
     let mut user_store = state.user_store.write().await;
     user_store.add_user(user).await.map_err(|e| match e {
         UserStoreError::UserAlreadyExists => AuthAPIError::UserAlreadyExists,
-        _ => AuthAPIError::UnexpectedError,
+        _ => AuthAPIError::UnexpectedError(e.into()),
     })?;
 
     Ok((

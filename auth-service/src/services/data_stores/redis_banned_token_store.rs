@@ -31,7 +31,7 @@ impl BannedTokenStore for RedisBannedTokenStore {
         let mut conn = self.conn.write().await;
         let key = get_key(&token);
         conn.set_ex(key, true, TOKEN_TTL_SECONDS as u64)
-            .map_err(|_| TokenStoreError::UnexpectedError)?;
+            .map_err(|e| TokenStoreError::UnexpectedError(e.into()))?;
 
         Ok(())
     }
@@ -39,7 +39,10 @@ impl BannedTokenStore for RedisBannedTokenStore {
     async fn check_token(&self, token: String) -> Result<(), TokenStoreError> {
         let mut conn = self.conn.write().await;
         let key = get_key(&token);
-        match conn.exists(&key).map_err(|_| TokenStoreError::UnexpectedError)? {
+        match conn
+            .exists(&key)
+            .map_err(|e| TokenStoreError::UnexpectedError(e.into()))?
+        {
             true => Err(TokenStoreError::BannedToken),
             false => Ok(()),
         }

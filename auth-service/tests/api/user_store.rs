@@ -71,7 +71,7 @@ async fn test_update_password() {
 
     let old_password = password;
     let result = user_store.validate_user(&email, &old_password).await;
-    assert!(matches!(result, Err(UserStoreError::InvalidCredentials)));
+    assert!(matches!(result, Err(e) if e.to_string() == "Failed to verify password hash"));
 
     let non_existent_email = Email::parse("nonexistent@example.com".to_string()).unwrap();
     let result = user_store.update_password(&non_existent_email, new_password).await;
@@ -97,11 +97,13 @@ async fn test_validate_user() {
 
     let wrong_password = Password::parse("WrongP@ssw0rd".to_string()).await.unwrap();
     let result = user_store.validate_user(&email, &wrong_password).await;
-    assert!(matches!(result, Err(UserStoreError::InvalidCredentials)));
+    assert!(matches!(result, Err(e) if e.to_string() == "Failed to verify password hash"));
 
     let non_existent_email = Email::parse("nonexistent@example.com".to_string()).unwrap();
     let result = user_store.validate_user(&non_existent_email, &password).await;
-    assert!(matches!(result, Err(UserStoreError::UserNotFound)));
+    assert!(
+        matches!(result, Err(e) if e.to_string() == "no rows returned by a query that expected to return at least one row")
+    );
 
     drop(user_store);
     app.clean_up().await.unwrap();

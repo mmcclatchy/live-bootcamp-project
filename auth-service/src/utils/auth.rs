@@ -1,9 +1,10 @@
 use core::fmt;
-use std::{error::Error, sync::Arc};
+use std::sync::Arc;
 
 use argon2::{password_hash::SaltString, Algorithm, Argon2, Params, PasswordHasher, Version};
 use axum_extra::extract::cookie::{Cookie, SameSite};
 use chrono::Utc;
+use color_eyre::eyre::{eyre, Report, Result};
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Validation};
 use log::error;
 use serde::{Deserialize, Serialize};
@@ -13,11 +14,14 @@ use crate::domain::{data_stores::BannedTokenStore, email::Email};
 
 use super::constants::{Epoch, JWT_COOKIE_NAME, JWT_SECRET, PASSWORD_RESET_TOKEN_TTL_SECONDS, TOKEN_TTL_SECONDS};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, thiserror::Error)]
 pub enum GenerateTokenError {
-    TokenError(jsonwebtoken::errors::Error),
+    #[error("Token error")]
+    TokenError(#[source] Report),
+    #[error("Banned token")]
     BannedToken,
-    UnexpectedError,
+    #[error("Unexpected error")]
+    UnexpectedError(#[source] Report),
 }
 
 #[derive(Debug, Deserialize, Serialize, PartialEq)]
@@ -55,19 +59,24 @@ pub fn generate_auth_cookie(email: &Email) -> Result<Cookie<'static>, GenerateTo
 
 #[tracing::instrument(name = "Generate Auth Token", skip_all)]
 pub fn generate_auth_token(email: &Email) -> Result<String, GenerateTokenError> {
-    let delta = chrono::Duration::try_seconds(TOKEN_TTL_SECONDS).ok_or(GenerateTokenError::UnexpectedError)?;
-    let exp = Utc::now()
+    let delta = chrono::Duration::try_seconds(TOKEN_TTL_SECONDS).ok_or(GenerateTokenError::UnexpectedError(eyre!(
+        "Failed to obtain chrono duration"
+    )))?;
+    let exp: Epoch = Utc::now()
         .checked_add_signed(delta)
-        .ok_or(GenerateTokenError::UnexpectedError)?
-        .timestamp();
-    let exp: Epoch = exp.try_into().map_err(|_| GenerateTokenError::UnexpectedError)?;
+        .ok_or(GenerateTokenError::UnexpectedError(eyre!(
+            "Failed to generate expiration timestamp"
+        )))?
+        .timestamp()
+        .try_into()
+        .map_err(|_| GenerateTokenError::UnexpectedError(eyre!("Failed to convert to Epoch")))?;
     let sub = email.as_ref().to_owned();
     let claims = Claims {
         sub,
         exp,
         purpose: TokenPurpose::Auth,
     };
-    create_token(&claims).map_err(GenerateTokenError::TokenError)
+    create_token(&claims).map_err(|e| GenerateTokenError::TokenError(e.into()))
 }
 
 #[tracing::instrument(name = "Validate Token", skip_all)]
@@ -81,7 +90,7 @@ pub async fn validate_token_structure(token: &str) -> Result<Claims, GenerateTok
         Err(error) => {
             error!("[ERROR][validate_token_structure] {:?}", error);
             println!("[ERROR][validate_token_structure] {:?}", error);
-            return Err(GenerateTokenError::TokenError(error));
+            return Err(GenerateTokenError::TokenError(error.into()));
         }
     };
     let claims = data.claims;
@@ -113,20 +122,24 @@ pub fn create_token(claims: &Claims) -> Result<String, jsonwebtoken::errors::Err
 
 #[tracing::instrument(name = "Generate Password Reset Token", skip_all)]
 pub fn generate_password_reset_token(email: &Email) -> Result<String, GenerateTokenError> {
-    let delta =
-        chrono::Duration::try_seconds(PASSWORD_RESET_TOKEN_TTL_SECONDS).ok_or(GenerateTokenError::UnexpectedError)?;
-    let exp = Utc::now()
+    let delta = chrono::Duration::try_seconds(PASSWORD_RESET_TOKEN_TTL_SECONDS).ok_or(
+        GenerateTokenError::UnexpectedError(eyre!("Failed to obtain chrono duration")),
+    )?;
+    let exp: Epoch = Utc::now()
         .checked_add_signed(delta)
-        .ok_or(GenerateTokenError::UnexpectedError)?
-        .timestamp();
-    let exp: Epoch = exp.try_into().map_err(|_| GenerateTokenError::UnexpectedError)?;
+        .ok_or(GenerateTokenError::UnexpectedError(eyre!(
+            "Failed to generate expiration timestamp"
+        )))?
+        .timestamp()
+        .try_into()
+        .map_err(|_| GenerateTokenError::UnexpectedError(eyre!("Failed to convert to Epoch")))?;
     let sub = email.as_ref().to_owned();
     let claims = Claims {
         sub,
         exp,
         purpose: TokenPurpose::PasswordReset,
     };
-    create_token(&claims).map_err(GenerateTokenError::TokenError)
+    create_token(&claims).map_err(|e| GenerateTokenError::TokenError(e.into()))
 }
 
 #[tracing::instrument(name = "Validate Password Reset Token", skip_all)]
@@ -137,27 +150,23 @@ pub async fn validate_password_reset_token<T: BannedTokenStore>(
     let claims = validate_token(banned_token_store, token).await?;
 
     if claims.purpose != TokenPurpose::PasswordReset {
-        return Err(GenerateTokenError::TokenError(
-            jsonwebtoken::errors::ErrorKind::InvalidToken.into(),
-        ));
+        return Err(GenerateTokenError::TokenError(eyre!("Invalid token type")));
     }
 
-    let email = Email::parse(claims.sub.clone())
-        .map_err(|_| GenerateTokenError::TokenError(jsonwebtoken::errors::ErrorKind::InvalidSubject.into()))?;
+    let email = Email::parse(claims.sub.clone()).map_err(|err_msg| GenerateTokenError::TokenError(eyre!(err_msg)))?;
 
     Ok((email, claims))
 }
 
-#[tracing::instrument(name = "Compute Hash (Asynchronous)", skip_all)]
-pub async fn async_compute_password_hash(password: &str) -> Result<String, Box<dyn Error + Send + Sync>> {
+#[tracing::instrument(name = "Compute Password Hash", skip_all)]
+pub async fn async_compute_password_hash(password: &str) -> Result<String> {
     let password = password.to_string();
     let password_hash = tokio::task::spawn_blocking(|| compute_password_hash(password)).await??;
 
     Ok(password_hash)
 }
 
-#[tracing::instrument(name = "Compute Hash (Synchronous)", skip_all)]
-pub fn compute_password_hash(password: String) -> Result<String, Box<dyn Error + Send + Sync>> {
+pub fn compute_password_hash(password: String) -> Result<String> {
     let salt: SaltString = SaltString::generate(&mut rand::thread_rng());
     let argon2 = Argon2::new(Algorithm::Argon2id, Version::V0x13, Params::new(15000, 2, 1, None)?);
     let hash = argon2.hash_password(password.as_bytes(), &salt)?.to_string();
@@ -317,10 +326,7 @@ mod tests {
         let result = validate_password_reset_token(banned_token_store, &token).await;
 
         assert!(result.is_err());
-        assert_eq!(
-            result.unwrap_err(),
-            GenerateTokenError::TokenError(jsonwebtoken::errors::ErrorKind::InvalidToken.into())
-        );
+        assert_eq!(result.unwrap_err().to_string(), "Token error");
     }
 
     #[tokio::test]
@@ -337,10 +343,7 @@ mod tests {
         let result = validate_password_reset_token(banned_token_store, &token).await;
 
         assert!(result.is_err());
-        assert_eq!(
-            result.unwrap_err(),
-            GenerateTokenError::TokenError(jsonwebtoken::errors::ErrorKind::ExpiredSignature.into())
-        );
+        assert_eq!(result.unwrap_err().to_string(), "Token error");
     }
 
     #[tokio::test]
@@ -355,9 +358,6 @@ mod tests {
         let result = validate_password_reset_token(banned_token_store, &token).await;
 
         assert!(result.is_err());
-        assert_eq!(
-            result.unwrap_err(),
-            GenerateTokenError::TokenError(jsonwebtoken::errors::ErrorKind::InvalidSubject.into())
-        );
+        assert_eq!(result.unwrap_err().to_string(), "Token error");
     }
 }

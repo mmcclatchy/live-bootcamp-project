@@ -2,6 +2,7 @@ use core::fmt;
 use std::{env as std_env, sync::Arc};
 
 use axum::{extract::State, Json};
+use color_eyre::eyre::eyre;
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 
@@ -57,7 +58,7 @@ pub async fn post<'a, S: AppServices>(
     token_store
         .add_token(email.clone(), token.clone())
         .await
-        .map_err(|_| AuthAPIError::UnexpectedError)?;
+        .map_err(|e| AuthAPIError::UnexpectedError(e.into()))?;
 
     let auth_base_url = match std_env::var(env::REST_AUTH_SERVICE_URL_ENV_VAR) {
         Ok(auth_base_url) => auth_base_url,
@@ -68,7 +69,7 @@ pub async fn post<'a, S: AppServices>(
         .email_client
         .send_email(&email, "Password Reset Link", &email_content)
         .await
-        .map_err(|_| AuthAPIError::UnexpectedError)?;
+        .map_err(|err_msg| AuthAPIError::UnexpectedError(eyre!(err_msg)))?;
 
     Ok(Json(INITIATE_PASSWORD_RESPONSE.clone()))
 }

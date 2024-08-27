@@ -4,6 +4,7 @@ use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::{extract::State, Json};
 use axum_extra::extract::CookieJar;
+use color_eyre::eyre::eyre;
 use log::info;
 use serde::{Deserialize, Serialize};
 
@@ -57,15 +58,17 @@ pub async fn post<S: AppServices>(
     }
 }
 
+#[tracing::instrument(name = "Handle no 2fa path")]
 async fn handle_no_2fa(
     email: &Email,
     jar: CookieJar,
 ) -> Result<(CookieJar, (StatusCode, Json<LoginResponse>)), AuthAPIError> {
-    let auth_cookie = generate_auth_cookie(email).map_err(|_| AuthAPIError::UnexpectedError)?;
+    let auth_cookie = generate_auth_cookie(email).map_err(|e| AuthAPIError::UnexpectedError(e.into()))?;
     let updated_jar = jar.add(auth_cookie);
     Ok((updated_jar, (StatusCode::OK, Json(LoginResponse::RegularAuth))))
 }
 
+#[tracing::instrument(name = "Handle 2fa path")]
 async fn handle_2fa<S: AppServices>(
     email: &Email,
     state: &AppState<S>,
@@ -79,7 +82,7 @@ async fn handle_2fa<S: AppServices>(
     two_fa_code_store
         .add_code(email.clone(), login_attempt_id.clone(), two_fa_code.clone())
         .await
-        .map_err(|_| AuthAPIError::UnexpectedError)?;
+        .map_err(|e| AuthAPIError::UnexpectedError(e.into()))?;
 
     let response = TwoFactorAuthResponse {
         message: "2FA required".to_string(),
@@ -92,8 +95,8 @@ async fn handle_2fa<S: AppServices>(
         .await
         .is_err()
     {
-        println!("[login][post][handle_2fa] Error sending 2FA email");
-        return Err(AuthAPIError::UnexpectedError);
+        tracing::info!("Error sending 2FA email");
+        return Err(AuthAPIError::UnexpectedError(eyre!("Failed to send 2FA email")));
     };
 
     Ok((

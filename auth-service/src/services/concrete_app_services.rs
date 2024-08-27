@@ -13,6 +13,7 @@ use super::{
     mock_email_client::MockEmailClient,
 };
 
+#[derive(Debug)]
 pub struct MemoryServices;
 
 impl AppServices for MemoryServices {

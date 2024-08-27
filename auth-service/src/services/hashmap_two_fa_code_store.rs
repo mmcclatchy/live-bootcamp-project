@@ -90,7 +90,6 @@ mod tests {
         let result = store.get_code(&email).await;
 
         assert!(result.is_err());
-        assert_eq!(result.unwrap_err(), TwoFACodeStoreError::LoginAttemptIdNotFound);
     }
 
     #[tokio::test]
@@ -117,7 +116,6 @@ mod tests {
         let result = store.remove_code(&email).await;
 
         assert!(result.is_err());
-        assert_eq!(result.unwrap_err(), TwoFACodeStoreError::LoginAttemptIdNotFound);
     }
 
     #[tokio::test]

@@ -1,3 +1,4 @@
+use color_eyre::eyre;
 use sqlx::PgPool;
 
 use crate::{
@@ -27,13 +28,13 @@ impl UserStore for PostgresUserStore {
     async fn add_user(&mut self, user: NewUser) -> Result<(), UserStoreError> {
         let password_hash = async_compute_password_hash(user.password.as_ref())
             .await
-            .map_err(|_| UserStoreError::UnexpectedError)?;
+            .map_err(UserStoreError::UnexpectedError)?;
         let result = sqlx::query_as!(
             DbUser,
-            "
-INSERT INTO users (email, password_hash, requires_2fa)
-VALUES ($1, $2, $3)
-            ",
+            r#"
+            INSERT INTO users (email, password_hash, requires_2fa)
+            VALUES ($1, $2, $3)
+            "#,
             user.email.as_ref(),
             password_hash,
             user.requires_2fa
@@ -46,7 +47,7 @@ VALUES ($1, $2, $3)
             Err(sqlx::Error::Database(db_err)) if db_err.is_unique_violation() => {
                 Err(UserStoreError::UserAlreadyExists)
             }
-            Err(_) => Err(UserStoreError::UnexpectedError),
+            Err(e) => Err(UserStoreError::UnexpectedError(e.into())),
         }
     }
 
@@ -54,11 +55,11 @@ VALUES ($1, $2, $3)
     async fn get_user(&self, email: &Email) -> Result<User, UserStoreError> {
         let user = sqlx::query_as!(
             DbUser,
-            "
-SELECT *
-FROM users
-WHERE email = $1
-            ",
+            r#"
+            SELECT *
+            FROM users
+            WHERE email = $1
+            "#,
             email.as_ref()
         )
         .fetch_one(&self.pool)
@@ -71,13 +72,13 @@ WHERE email = $1
     async fn update_password(&mut self, email: &Email, password: Password) -> Result<(), UserStoreError> {
         let password_hash = async_compute_password_hash(password.as_ref())
             .await
-            .map_err(|_| UserStoreError::UnexpectedError)?;
+            .map_err(UserStoreError::UnexpectedError)?;
         let result = sqlx::query!(
-            "
-UPDATE users
-SET password_hash = $1
-WHERE email = $2
-            ",
+            r#"
+            UPDATE users
+            SET password_hash = $1
+            WHERE email = $2
+            "#,
             password_hash,
             email.as_ref(),
         )
@@ -92,24 +93,23 @@ WHERE email = $2
                     Ok(())
                 }
             }
-            Err(_) => Err(UserStoreError::UnexpectedError),
+            Err(e) => Err(UserStoreError::UnexpectedError(e.into())),
         }
     }
 
     #[tracing::instrument(name = "Verify password hash", skip_all)]
-    async fn validate_user(&self, email: &Email, password: &Password) -> Result<User, UserStoreError> {
+    async fn validate_user(&self, email: &Email, password: &Password) -> eyre::Result<User> {
         let user = sqlx::query_as!(
             DbUser,
-            "
-SELECT *
-FROM users
-WHERE email = $1
-                ",
+            r#"
+            SELECT *
+            FROM users
+            WHERE email = $1
+            "#,
             email.as_ref()
         )
         .fetch_one(&self.pool)
-        .await
-        .map_err(|_| UserStoreError::UserNotFound)?;
+        .await?;
         user.verify_password(password)?;
         Ok(user.to_user())
     }

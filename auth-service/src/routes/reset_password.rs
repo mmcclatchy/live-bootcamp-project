@@ -58,7 +58,7 @@ pub async fn post<S: AppServices>(
     token_store
         .remove_token(&email)
         .await
-        .map_err(|_| AuthAPIError::UnexpectedError)?;
+        .map_err(|e| AuthAPIError::UnexpectedError(e.into()))?;
 
     let mut user_store = state.user_store.write().await;
     user_store
@@ -66,7 +66,7 @@ pub async fn post<S: AppServices>(
         .await
         .map_err(|_| AuthAPIError::UserNotFound)?;
 
-    let auth_cookie = generate_auth_cookie(&email).map_err(|_| AuthAPIError::UnexpectedError)?;
+    let auth_cookie = generate_auth_cookie(&email).map_err(|e| AuthAPIError::UnexpectedError(e.into()))?;
     let updated_jar = jar.add(auth_cookie);
 
     let response = ResetPasswordResponse {

@@ -1,5 +1,6 @@
-use std::sync::Arc;
+use std::{fmt::Debug, sync::Arc};
 
+use color_eyre::eyre::eyre;
 use redis::{Commands, Connection};
 use serde::{Deserialize, Serialize};
 use serde_json::{from_str, json};
@@ -21,6 +22,12 @@ impl RedisTwoFACodeStore {
     }
 }
 
+impl Debug for RedisTwoFACodeStore {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "RedisTwoFACodeStore")
+    }
+}
+
 #[async_trait::async_trait]
 impl TwoFACodeStore for RedisTwoFACodeStore {
     async fn add_code(
@@ -38,7 +45,7 @@ impl TwoFACodeStore for RedisTwoFACodeStore {
         println!("[Redis2FACodeStore][add_code] {two_fa_json}");
 
         conn.set_ex(key, two_fa_json, TEN_MINUTES_IN_SECONDS)
-            .map_err(|_| TwoFACodeStoreError::UnexpectedError)?;
+            .map_err(|e| TwoFACodeStoreError::UnexpectedError(e.into()))?;
 
         println!("[Redis2FACodeStore][add_code] 2FA Code Set");
 
@@ -48,7 +55,8 @@ impl TwoFACodeStore for RedisTwoFACodeStore {
     async fn remove_code(&mut self, email: &Email) -> Result<(), TwoFACodeStoreError> {
         let key = get_key(email);
         let mut conn = self.conn.write().await;
-        conn.del(key).map_err(|_| TwoFACodeStoreError::UnexpectedError)?;
+        conn.del(key)
+            .map_err(|e| TwoFACodeStoreError::UnexpectedError(e.into()))?;
 
         Ok(())
     }
@@ -57,11 +65,12 @@ impl TwoFACodeStore for RedisTwoFACodeStore {
         let mut conn = self.conn.write().await;
         let key = get_key(email);
         let two_fa_json: String = conn.get(key).map_err(|_| TwoFACodeStoreError::LoginAttemptIdNotFound)?;
-        let two_fa_tuple: TwoFATuple = from_str(&two_fa_json).map_err(|_| TwoFACodeStoreError::UnexpectedError)?;
+        let two_fa_tuple: TwoFATuple =
+            from_str(&two_fa_json).map_err(|e| TwoFACodeStoreError::UnexpectedError(e.into()))?;
 
         two_fa_tuple
             .destructure()
-            .map_err(|_| TwoFACodeStoreError::UnexpectedError)
+            .map_err(|err_msg| TwoFACodeStoreError::UnexpectedError(eyre!(err_msg)))
     }
 }
 

@@ -43,7 +43,7 @@ impl<S: AppServices + 'static> AuthService for GRPCAuthService<S> {
         let mut user_store = self.app_state.user_store.write().await;
         user_store.add_user(user).await.map_err(|e| match e {
             UserStoreError::UserAlreadyExists => AuthAPIError::UserAlreadyExists,
-            _ => AuthAPIError::UnexpectedError,
+            _ => AuthAPIError::UnexpectedError(e.into()),
         })?;
 
         Ok(Response::new(SignupResponse {

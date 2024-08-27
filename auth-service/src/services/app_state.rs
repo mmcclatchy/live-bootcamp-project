@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{fmt, sync::Arc};
 
 use tokio::sync::RwLock;
 
@@ -7,12 +7,12 @@ use crate::domain::{
     email_client::EmailClient,
 };
 
-pub trait AppServices {
-    type BannedTokenStore: BannedTokenStore + 'static;
-    type UserStore: UserStore + 'static;
-    type TwoFACodeStore: TwoFACodeStore + 'static;
-    type PasswordResetTokenStore: PasswordResetTokenStore + 'static;
-    type EmailClient: EmailClient + 'static;
+pub trait AppServices: fmt::Debug {
+    type BannedTokenStore: BannedTokenStore + fmt::Debug + 'static;
+    type UserStore: UserStore + fmt::Debug + 'static;
+    type TwoFACodeStore: TwoFACodeStore + fmt::Debug + 'static;
+    type PasswordResetTokenStore: PasswordResetTokenStore + fmt::Debug + 'static;
+    type EmailClient: EmailClient + fmt::Debug + 'static;
 }
 
 #[derive(Clone, Debug)]

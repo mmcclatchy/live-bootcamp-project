@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use color_eyre::eyre::{self, eyre};
+
 use crate::{
     domain::{
         data_stores::{UserStore, UserStoreError},
@@ -40,7 +42,7 @@ impl UserStore for HashmapUserStore {
             None => {
                 let password_hash = async_compute_password_hash(user.password.as_ref())
                     .await
-                    .map_err(|_| UserStoreError::UnexpectedError)?;
+                    .map_err(UserStoreError::UnexpectedError)?;
                 let user = DbUser {
                     email: email.to_string(),
                     password_hash,
@@ -66,14 +68,17 @@ impl UserStore for HashmapUserStore {
             Some(user) => (*user).clone(),
             None => return Err(UserStoreError::UserNotFound),
         };
-        user.update_password(&password).await?;
+        user.update_password(&password)
+            .await
+            .map_err(|_| UserStoreError::UserNotFound)?;
         self.users.insert((*email).clone(), user);
         Ok(())
     }
 
-    async fn validate_user(&self, email: &Email, password: &Password) -> Result<User, UserStoreError> {
+    async fn validate_user(&self, email: &Email, password: &Password) -> eyre::Result<User> {
         let db_user = match self.users.get(email) {
-            None => Err(UserStoreError::UserNotFound),
+            None => Err(eyre!("User Not Found")),
+            // None => Err(UserStoreError::UserNotFound),
             Some(db_user) => Ok((*db_user).clone()),
         }?;
         db_user.verify_password(password)?;
@@ -171,7 +176,8 @@ mod tests {
         let email = get_test_email();
         let password = get_test_password().await;
         let result = store.validate_user(&email, &password).await;
-        assert_eq!(result, Err(UserStoreError::UserNotFound));
+        // assert_eq!(result, Err(UserStoreError::UserNotFound));
+        assert!(result.is_err())
     }
 
     #[tokio::test]
@@ -180,6 +186,7 @@ mod tests {
         let email = get_test_email();
         let incorrect_password = Password::parse("Inc0rrect!".to_string()).await.unwrap();
         let result = store.validate_user(&email, &incorrect_password).await;
-        assert_eq!(result, Err(UserStoreError::InvalidCredentials));
+        // assert_eq!(result, Err(UserStoreError::InvalidCredentials));
+        assert!(result.is_err())
     }
 }

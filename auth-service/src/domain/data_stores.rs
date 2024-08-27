@@ -1,7 +1,9 @@
 use std::fmt;
 
+use color_eyre::eyre;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
+use thiserror;
 use uuid::Uuid;
 
 use super::user::{NewUser, User};
@@ -15,7 +17,7 @@ pub trait UserStore: Clone + Send + Sync + 'static + fmt::Debug {
     async fn add_user(&mut self, user: NewUser) -> Result<(), UserStoreError>;
     async fn get_user(&self, email: &Email) -> Result<User, UserStoreError>;
     async fn update_password(&mut self, email: &Email, password: Password) -> Result<(), UserStoreError>;
-    async fn validate_user(&self, email: &Email, password: &Password) -> Result<User, UserStoreError>;
+    async fn validate_user(&self, email: &Email, password: &Password) -> eyre::Result<User>;
 }
 
 #[async_trait::async_trait]
@@ -25,7 +27,7 @@ pub trait BannedTokenStore: Clone + Send + Sync + 'static + fmt::Debug {
 }
 
 #[async_trait::async_trait]
-pub trait TwoFACodeStore: Clone + Send + Sync + 'static {
+pub trait TwoFACodeStore: Clone + Send + Sync + 'static + fmt::Debug {
     async fn add_code(
         &mut self,
         email: Email,
@@ -39,7 +41,7 @@ pub trait TwoFACodeStore: Clone + Send + Sync + 'static {
 }
 
 #[async_trait::async_trait]
-pub trait PasswordResetTokenStore: Clone + Send + Sync + 'static {
+pub trait PasswordResetTokenStore: Clone + Send + Sync + 'static + fmt::Debug {
     async fn add_token(&mut self, email: Email, token: String) -> Result<(), TokenStoreError>;
     async fn get_token(&self, email: &Email) -> Result<String, TokenStoreError>;
     async fn remove_token(&mut self, email: &Email) -> Result<(), TokenStoreError>;
@@ -49,26 +51,36 @@ pub trait PasswordResetTokenStore: Clone + Send + Sync + 'static {
 
 //************************  Enums   ************************//
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, thiserror::Error)]
 pub enum UserStoreError {
+    #[error("User already exists")]
     UserAlreadyExists,
+    #[error("User not found")]
     UserNotFound,
+    #[error("Invalid credentials")]
     InvalidCredentials,
-    UnexpectedError,
+    #[error("Unexpected error")]
+    UnexpectedError(#[source] eyre::Report),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, thiserror::Error)]
 pub enum TokenStoreError {
+    #[error("Banned token")]
     BannedToken,
+    #[error("Invalid token")]
     InvalidToken,
+    #[error("Token not found")]
     TokenNotFound,
-    UnexpectedError,
+    #[error("Unexpected error")]
+    UnexpectedError(#[source] eyre::Report),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, thiserror::Error)]
 pub enum TwoFACodeStoreError {
+    #[error("Login attempt id not found")]
     LoginAttemptIdNotFound,
-    UnexpectedError,
+    #[error("Unexpected error")]
+    UnexpectedError(#[source] eyre::Report),
 }
 
 //************************  Enums   ************************//

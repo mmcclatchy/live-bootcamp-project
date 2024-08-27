@@ -19,6 +19,12 @@ impl RedisPasswordResetTokenStore {
     }
 }
 
+impl std::fmt::Debug for RedisPasswordResetTokenStore {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "RedisPasswordResetTokenStore")
+    }
+}
+
 #[async_trait::async_trait]
 impl PasswordResetTokenStore for RedisPasswordResetTokenStore {
     async fn add_token(&mut self, email: Email, token: String) -> Result<(), TokenStoreError> {
@@ -26,7 +32,7 @@ impl PasswordResetTokenStore for RedisPasswordResetTokenStore {
         let key = get_key(&email);
 
         conn.set_ex(key, token, TEN_MINUTES_IN_SECONDS)
-            .map_err(|_| TokenStoreError::UnexpectedError)?;
+            .map_err(|e| TokenStoreError::UnexpectedError(e.into()))?;
 
         Ok(())
     }
@@ -34,7 +40,7 @@ impl PasswordResetTokenStore for RedisPasswordResetTokenStore {
     async fn remove_token(&mut self, email: &Email) -> Result<(), TokenStoreError> {
         let key = get_key(email);
         let mut conn = self.conn.write().await;
-        conn.del(key).map_err(|_| TokenStoreError::UnexpectedError)?;
+        conn.del(key).map_err(|e| TokenStoreError::UnexpectedError(e.into()))?;
 
         Ok(())
     }

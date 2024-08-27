@@ -68,7 +68,7 @@ mod tests {
         store.add_token(token.clone()).await.unwrap();
 
         let result = store.check_token(token).await;
-        assert_eq!(result, Err(TokenStoreError::BannedToken));
+        assert!(result.is_err());
     }
 
     #[tokio::test]

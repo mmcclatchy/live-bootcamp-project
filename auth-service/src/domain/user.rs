@@ -1,11 +1,10 @@
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
+use color_eyre::eyre::{Context, Result};
 
 use crate::{
     domain::{email::Email, password::Password},
     utils::auth::async_compute_password_hash,
 };
-
-use super::data_stores::UserStoreError;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct NewUser {
@@ -38,12 +37,13 @@ impl NewUser {
 }
 
 impl DbUser {
-    pub fn verify_password(&self, password_attempt: &Password) -> Result<(), UserStoreError> {
-        let parsed_hash = PasswordHash::new(&self.password_hash).map_err(|_| UserStoreError::UnexpectedError)?;
+    #[tracing::instrument(name = "Verify User Password", skip_all)]
+    pub fn verify_password(&self, password_attempt: &Password) -> Result<()> {
+        let parsed_hash = PasswordHash::new(&self.password_hash)?;
 
         Argon2::default()
             .verify_password(password_attempt.as_ref().as_bytes(), &parsed_hash)
-            .map_err(|_| UserStoreError::InvalidCredentials)
+            .wrap_err("Failed to verify password hash")
     }
 
     pub fn to_user(&self) -> User {
@@ -54,10 +54,8 @@ impl DbUser {
     }
 
     // TODO: This is only used in HashMapUserStore. Remove when gRPC is updated to use PostgresUserStore
-    pub async fn update_password(&mut self, password: &Password) -> Result<(), UserStoreError> {
-        let new_password_hash = async_compute_password_hash(password.as_ref())
-            .await
-            .map_err(|_| UserStoreError::UnexpectedError)?;
+    pub async fn update_password(&mut self, password: &Password) -> Result<()> {
+        let new_password_hash = async_compute_password_hash(password.as_ref()).await?;
         self.password_hash = new_password_hash;
         Ok(())
     }
@@ -116,10 +114,11 @@ mod tests {
         };
 
         let wrong_password = Password::parse("Wr0ngP@ssw0rd".to_string()).await.unwrap();
-        assert_eq!(
-            db_user.verify_password(&wrong_password),
-            Err(UserStoreError::InvalidCredentials)
-        );
+        // assert_eq!(
+        //     db_user.verify_password(&wrong_password),
+        //     Err(UserStoreError::InvalidCredentials)
+        // );
+        assert!(db_user.verify_password(&wrong_password).is_err())
     }
 
     #[tokio::test]
