@@ -4,6 +4,7 @@ use auth_service::services::data_stores::redis_banned_token_store::RedisBannedTo
 use auth_service::services::data_stores::redis_password_reset_token_store::RedisPasswordResetTokenStore;
 use auth_service::services::data_stores::redis_two_fa_code_store::RedisTwoFACodeStore;
 use reqwest::cookie::Jar;
+use secrecy::Secret;
 use serde::Serialize;
 use serde_json::json;
 use tokio::sync::RwLockReadGuard;
@@ -171,7 +172,7 @@ impl RESTTestApp {
     }
 
     pub async fn get_password_reset_token(&self, email: &str) -> Option<String> {
-        let email = Email::parse(email.to_string()).ok()?;
+        let email = Email::parse(Secret::new(email.to_string())).ok()?;
         let token_store = self.app_state.password_reset_token_store.read().await;
         token_store.get_token(&email).await.ok()
     }

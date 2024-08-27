@@ -41,12 +41,14 @@ impl BannedTokenStore for HashMapBannedTokenStore {
 
 #[cfg(test)]
 mod tests {
+    use secrecy::Secret;
+
     use crate::{domain::email::Email, utils::auth::generate_auth_token};
 
     use super::*;
 
     fn create_token(email: &str) -> String {
-        let email = Email::parse(email.to_string()).unwrap();
+        let email = Email::parse(Secret::new(email.to_string())).unwrap();
         let token = generate_auth_token(&email).unwrap();
         token
     }

@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use redis::{Commands, Connection};
+use secrecy::ExposeSecret;
 use tokio::sync::RwLock;
 
 use crate::domain::{
@@ -58,5 +59,5 @@ const TEN_MINUTES_IN_SECONDS: u64 = 600;
 const PASSWORD_RESET_PREFIX: &str = "password_reset:";
 
 fn get_key(email: &Email) -> String {
-    format!("{}{}", PASSWORD_RESET_PREFIX, email.as_ref())
+    format!("{}{}", PASSWORD_RESET_PREFIX, email.as_ref().expose_secret())
 }

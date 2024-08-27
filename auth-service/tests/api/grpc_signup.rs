@@ -1,3 +1,4 @@
+use secrecy::Secret;
 use tonic::Request;
 
 use auth_proto::SignupRequest;
@@ -32,7 +33,7 @@ async fn grpc_signup_works_for_valid_credentials() {
 
     let user_store = app.app_state.user_store.read().await;
 
-    let user_email = Email::parse(email).unwrap();
+    let user_email = Email::parse(Secret::new(email)).unwrap();
     println!(
         "[signup][tests][grpc_signup_works_for_valid_credentials] {:?}",
         user_email

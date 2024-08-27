@@ -46,13 +46,19 @@ impl TwoFACodeStore for HashMapTwoFACodeStore {
 
 #[cfg(test)]
 mod tests {
+    use secrecy::Secret;
+
     use super::*;
     use crate::domain::email::Email;
+
+    fn str_to_valid_email(email: &str) -> Email {
+        Email::parse(Secret::new(email.to_string())).unwrap()
+    }
 
     #[tokio::test]
     async fn test_add_code() {
         let mut store = HashMapTwoFACodeStore::new();
-        let email = Email::parse("test@example.com".to_string()).unwrap();
+        let email = str_to_valid_email("test@example.com");
         let login_attempt_id = LoginAttemptId::default();
         let code = TwoFACode::default();
 
@@ -68,7 +74,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_code_existing() {
         let mut store = HashMapTwoFACodeStore::new();
-        let email = Email::parse("test@example.com".to_string()).unwrap();
+        let email = str_to_valid_email("test@example.com");
         let login_attempt_id = LoginAttemptId::default();
         let code = TwoFACode::default();
 
@@ -85,7 +91,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_code_non_existing() {
         let store = HashMapTwoFACodeStore::new();
-        let email = Email::parse("test@example.com".to_string()).unwrap();
+        let email = str_to_valid_email("test@example.com");
 
         let result = store.get_code(&email).await;
 
@@ -95,7 +101,7 @@ mod tests {
     #[tokio::test]
     async fn test_remove_code_existing() {
         let mut store = HashMapTwoFACodeStore::new();
-        let email = Email::parse("test@example.com".to_string()).unwrap();
+        let email = str_to_valid_email("test@example.com");
         let login_attempt_id = LoginAttemptId::default();
         let code = TwoFACode::default();
 
@@ -111,7 +117,7 @@ mod tests {
     #[tokio::test]
     async fn test_remove_code_non_existing() {
         let mut store = HashMapTwoFACodeStore::new();
-        let email = Email::parse("test@example.com".to_string()).unwrap();
+        let email = str_to_valid_email("test@example.com");
 
         let result = store.remove_code(&email).await;
 
@@ -121,7 +127,7 @@ mod tests {
     #[tokio::test]
     async fn test_add_code_overwrites_existing() {
         let mut store = HashMapTwoFACodeStore::new();
-        let email = Email::parse("test@example.com".to_string()).unwrap();
+        let email = str_to_valid_email("test@example.com");
         let login_attempt_id1 = LoginAttemptId::default();
         let code1 = TwoFACode::default();
         let login_attempt_id2 = LoginAttemptId::default();

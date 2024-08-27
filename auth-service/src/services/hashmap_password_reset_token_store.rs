@@ -24,7 +24,7 @@ impl Default for HashMapPasswordResetTokenStore {
 #[async_trait::async_trait]
 impl PasswordResetTokenStore for HashMapPasswordResetTokenStore {
     async fn add_token(&mut self, email: Email, token: String) -> Result<(), TokenStoreError> {
-        self.tokens.insert(email, token);
+        self.tokens.insert(email.clone(), token);
         Ok(())
     }
 

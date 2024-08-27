@@ -1,13 +1,13 @@
-use std::borrow::Cow;
-use std::fmt;
+use std::{borrow::Cow, hash::Hash};
 
+use secrecy::{ExposeSecret, Secret};
 use validator::ValidateEmail;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Email(String);
+#[derive(Debug, Clone)]
+pub struct Email(Secret<String>);
 
 impl Email {
-    pub fn parse(email: String) -> Result<Self, String> {
+    pub fn parse(email: Secret<String>) -> Result<Self, String> {
         let email_instance = Self(email);
         if email_instance.validate_email() {
             Ok(email_instance)
@@ -19,21 +19,29 @@ impl Email {
 
 impl ValidateEmail for Email {
     fn as_email_string(&self) -> Option<Cow<'_, str>> {
-        Some(Cow::Borrowed(&self.0))
+        Some(Cow::Borrowed(self.0.expose_secret()))
     }
 }
 
-impl AsRef<str> for Email {
-    fn as_ref(&self) -> &str {
+impl AsRef<Secret<String>> for Email {
+    fn as_ref(&self) -> &Secret<String> {
         &self.0
     }
 }
 
-impl fmt::Display for Email {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.0)
+impl Hash for Email {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.0.expose_secret().hash(state)
     }
 }
+
+impl PartialEq for Email {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.expose_secret() == other.0.expose_secret()
+    }
+}
+
+impl Eq for Email {}
 
 #[cfg(test)]
 mod tests {
@@ -42,38 +50,40 @@ mod tests {
     use quickcheck::TestResult;
     use quickcheck_macros::quickcheck;
 
+    fn string_to_email_result(email: String) -> Result<Email, String> {
+        Email::parse(Secret::new(email))
+    }
+
     #[test]
     fn test_valid_email_with_fake() {
         let email: String = SafeEmail().fake();
-        let result = Email::parse(email.clone());
+        let result = string_to_email_result(email.clone());
         assert!(result.is_ok());
-        assert_eq!(result.unwrap().to_string(), email);
+        assert_eq!(result.unwrap().as_ref().expose_secret().to_string(), email);
     }
 
     #[test]
     fn test_invalid_email_with_fake() {
         let invalid_email: String = Faker.fake();
-        let result = Email::parse(invalid_email);
+        let result = string_to_email_result(invalid_email);
         assert!(result.is_err());
     }
 
     #[quickcheck]
     fn quickcheck_email_validation(email: String) -> TestResult {
-        let email_instance = Email(email.clone());
-        TestResult::from_bool(email_instance.validate_email() == Email::parse(email).is_ok())
+        let email_result = string_to_email_result(email.clone());
+        match email_result {
+            Err(err_msg) => TestResult::from_bool(err_msg == "Invalid email address"),
+            Ok(email_instance) => {
+                TestResult::from_bool(email_instance.validate_email() == Email::parse(Secret::new(email)).is_ok())
+            }
+        }
     }
 
     #[test]
     fn test_as_ref() {
         let email_string = "test@email.com".to_string();
-        let email = Email::parse(email_string.clone()).unwrap();
-        assert_eq!(email.as_ref(), email_string);
-    }
-
-    #[test]
-    fn test_display_implementation() {
-        let email_string = "test@email.com".to_string();
-        let email = Email::parse(email_string.clone()).unwrap();
-        assert_eq!(format!("{}", email), email_string);
+        let email = string_to_email_result(email_string.clone()).unwrap();
+        assert_eq!(email.as_ref().expose_secret().to_string(), email_string);
     }
 }

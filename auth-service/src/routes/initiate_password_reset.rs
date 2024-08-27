@@ -4,6 +4,7 @@ use std::{env as std_env, sync::Arc};
 use axum::{extract::State, Json};
 use color_eyre::eyre::eyre;
 use lazy_static::lazy_static;
+use secrecy::Secret;
 use serde::{Deserialize, Serialize};
 
 use crate::services::app_state::{AppServices, AppState};
@@ -26,7 +27,7 @@ lazy_static! {
 
 #[derive(Debug, Deserialize)]
 pub struct InitiatePasswordResetRequest {
-    email: String,
+    email: Secret<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]

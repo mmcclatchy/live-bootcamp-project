@@ -22,7 +22,7 @@ pub struct User {
 
 #[derive(Clone, Debug)]
 pub struct DbUser {
-    pub email: String,
+    pub email: Secret<String>,
     pub password_hash: Secret<String>,
     pub requires_2fa: bool,
 }
@@ -72,6 +72,23 @@ impl PartialEq for DbUser {
 mod tests {
     use super::*;
     use argon2::password_hash::{PasswordHasher, SaltString};
+    use color_eyre::eyre;
+
+    fn str_to_valid_email(email: &str) -> Email {
+        Email::parse(Secret::new(email.to_string())).unwrap()
+    }
+
+    fn str_to_email_secret(email: &str) -> Secret<String> {
+        str_to_valid_email(email).as_ref().clone()
+    }
+
+    async fn str_to_password_result(password: &str) -> eyre::Result<Password> {
+        Password::parse(Secret::new(password.to_string())).await
+    }
+
+    async fn str_to_valid_password(password: &str) -> Password {
+        str_to_password_result(password).await.unwrap()
+    }
 
     fn create_password_hash(password: &str) -> Secret<String> {
         let salt: SaltString = SaltString::generate(&mut rand::thread_rng());
@@ -84,8 +101,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_new_user_creation() {
-        let email = Email::parse("test@example.com".to_string()).unwrap();
-        let password = Password::parse(Secret::new("P@ssw0rd123".to_string())).await.unwrap();
+        let email = str_to_valid_email("test@example.com");
+        let password = str_to_valid_password("P@ssw0rd123").await;
         let requires_2fa = true;
 
         let new_user = NewUser::new(email.clone(), password.clone(), requires_2fa);
@@ -101,7 +118,7 @@ mod tests {
         let password_hash = create_password_hash(password);
 
         let db_user = DbUser {
-            email: "test@example.com".to_string(),
+            email: str_to_email_secret("test@example.com"),
             password_hash,
             requires_2fa: false,
         };
@@ -116,51 +133,37 @@ mod tests {
         let password_hash = create_password_hash(correct_password);
 
         let db_user = DbUser {
-            email: "test@example.com".to_string(),
+            email: str_to_email_secret("test@example.com"),
             password_hash,
             requires_2fa: false,
         };
 
         let wrong_password = Password::parse(Secret::new("Wr0ngP@ssw0rd".to_string())).await.unwrap();
-        // assert_eq!(
-        //     db_user.verify_password(&wrong_password),
-        //     Err(UserStoreError::InvalidCredentials)
-        // );
-        assert!(db_user.verify_password(&wrong_password).is_err())
+        let result = db_user.verify_password(&wrong_password);
+
+        println!("Verify Password Result: {:?}", result);
+        assert!(result.is_err_and(|report| report.to_string() == "Failed to verify password hash"));
     }
 
     #[tokio::test]
     async fn test_db_user_to_user() {
         let db_user = DbUser {
-            email: "test@example.com".to_string(),
+            email: str_to_email_secret("test@example.com"),
             password_hash: Secret::new("some_hash".to_string()),
             requires_2fa: true,
         };
 
         let user = db_user.to_user();
 
-        assert_eq!(user.email.as_ref(), "test@example.com");
+        assert_eq!(user.email.as_ref().expose_secret(), "test@example.com");
         assert_eq!(user.requires_2fa, true);
     }
-
-    // #[tokio::test]
-    // async fn test_db_user_update_password() {
-    //     let mut db_user = DbUser {
-    //         email: "test@example.com".to_string(),
-    //         password_hash: "old_hash".to_string(),
-    //         requires_2fa: false,
-    //     };
-
-    //     let new_password = Password::parse(Secret::new("NewP@ssw0rd123".to_string())).await.unwrap();
-    //     assert!(db_user.update_password(&new_password).is_ok());
-    //     assert_eq!(db_user.password_hash, new_password.to_string());
-    // }
 
     #[tokio::test]
     #[should_panic(expected = "[ERROR] Invalid email in database")]
     async fn test_db_user_to_user_with_invalid_email() {
         let db_user = DbUser {
-            email: "invalid_email".to_string(),
+            email: Secret::new("invalid_email".to_string()),
             password_hash: Secret::new("some_hash".to_string()),
             requires_2fa: false,
         };

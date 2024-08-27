@@ -2,7 +2,8 @@ use std::{sync::Arc, time::Duration};
 
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use axum_extra::extract::CookieJar;
-use serde::{Deserialize, Serialize};
+use secrecy::Secret;
+use serde::Deserialize;
 use tokio::time::timeout;
 
 use crate::domain::{
@@ -13,9 +14,9 @@ use crate::domain::{
 use crate::services::app_state::{AppServices, AppState};
 use crate::utils::auth::generate_auth_cookie;
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize)]
 pub struct Verify2FARequest {
-    email: String,
+    email: Secret<String>,
     #[serde(rename = "loginAttemptId")]
     login_attempt_id: String,
     #[serde(rename = "2FACode")]

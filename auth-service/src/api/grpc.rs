@@ -34,7 +34,7 @@ impl<S: AppServices + 'static> AuthService for GRPCAuthService<S> {
         info!("[gRPC][signup] Received request:  {:?}", request);
 
         let req = request.into_inner();
-        let email = Email::parse(req.email).map_err(AuthAPIError::InvalidEmail)?;
+        let email = Email::parse(Secret::new(req.email)).map_err(AuthAPIError::InvalidEmail)?;
         let password = Password::parse(Secret::new(req.password))
             .await
             .map_err(AuthAPIError::InvalidPassword)?;

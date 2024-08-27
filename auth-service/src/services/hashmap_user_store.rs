@@ -44,7 +44,7 @@ impl UserStore for HashmapUserStore {
                     .await
                     .map_err(UserStoreError::UnexpectedError)?;
                 let user = DbUser {
-                    email: email.to_string(),
+                    email: email.as_ref().clone(),
                     password_hash,
                     requires_2fa: user.requires_2fa,
                 };
@@ -95,12 +95,12 @@ impl Default for HashmapUserStore {
 
 #[cfg(test)]
 mod tests {
-    use secrecy::Secret;
+    use secrecy::{ExposeSecret, Secret};
 
     use super::*;
 
     fn get_test_email() -> Email {
-        Email::parse("test@email.com".to_string()).unwrap()
+        Email::parse(Secret::new("test@email.com".to_string())).unwrap()
     }
 
     async fn get_test_password() -> Password {
@@ -117,7 +117,7 @@ mod tests {
 
     async fn create_db_user() -> DbUser {
         DbUser {
-            email: get_test_email().to_string(),
+            email: get_test_email().as_ref().clone(),
             password_hash: get_test_password().await.as_ref().clone(),
             requires_2fa: false,
         }
@@ -148,7 +148,10 @@ mod tests {
         println!("[test_add_user] Test user: {:?}", test_user);
         println!("[test_add_user] Original password: {:?}", original_password);
 
-        assert_eq!(stored_user.email, test_user.email.to_string());
+        assert_eq!(
+            stored_user.email.expose_secret(),
+            test_user.email.as_ref().expose_secret()
+        );
         assert_eq!(stored_user.requires_2fa, test_user.requires_2fa);
 
         // assert!(stored_user.verify_password(&original_password).is_ok());
@@ -160,7 +163,10 @@ mod tests {
         let email = get_test_email();
         let output_user = store.get_user(&email).await.unwrap();
         let test_db_user = create_db_user().await;
-        assert_eq!(output_user.email.to_string(), test_db_user.email);
+        assert_eq!(
+            output_user.email.as_ref().expose_secret(),
+            test_db_user.email.expose_secret()
+        );
         assert_eq!(output_user.requires_2fa, test_db_user.requires_2fa);
     }
 

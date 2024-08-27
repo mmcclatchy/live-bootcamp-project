@@ -71,7 +71,7 @@ pub fn generate_auth_token(email: &Email) -> Result<String, GenerateTokenError> 
         .timestamp()
         .try_into()
         .map_err(|_| GenerateTokenError::UnexpectedError(eyre!("Failed to convert to Epoch")))?;
-    let sub = email.as_ref().to_owned();
+    let sub = email.as_ref().expose_secret().to_owned();
     let claims = Claims {
         sub,
         exp,
@@ -134,7 +134,7 @@ pub fn generate_password_reset_token(email: &Email) -> Result<String, GenerateTo
         .timestamp()
         .try_into()
         .map_err(|_| GenerateTokenError::UnexpectedError(eyre!("Failed to convert to Epoch")))?;
-    let sub = email.as_ref().to_owned();
+    let sub = email.as_ref().expose_secret().to_owned();
     let claims = Claims {
         sub,
         exp,
@@ -154,7 +154,8 @@ pub async fn validate_password_reset_token<T: BannedTokenStore>(
         return Err(GenerateTokenError::TokenError(eyre!("Invalid token type")));
     }
 
-    let email = Email::parse(claims.sub.clone()).map_err(|err_msg| GenerateTokenError::TokenError(eyre!(err_msg)))?;
+    let email = Email::parse(Secret::new(claims.sub.clone()))
+        .map_err(|err_msg| GenerateTokenError::TokenError(eyre!(err_msg)))?;
 
     Ok((email, claims))
 }
@@ -184,9 +185,13 @@ mod tests {
 
     use super::*;
 
+    fn str_to_valid_email(email: &str) -> Email {
+        Email::parse(Secret::new(email.to_string())).unwrap()
+    }
+
     #[tokio::test]
     async fn test_generate_auth_cookie() {
-        let email = Email::parse("test@example.com".to_owned()).unwrap();
+        let email = str_to_valid_email("test@example.com");
         let cookie = generate_auth_cookie(&email).unwrap();
         assert_eq!(cookie.name(), JWT_COOKIE_NAME);
         assert_eq!(cookie.value().split('.').count(), 3);
@@ -197,14 +202,14 @@ mod tests {
 
     #[tokio::test]
     async fn test_generate_auth_token() {
-        let email = Email::parse("test@example.com".to_owned()).unwrap();
+        let email = str_to_valid_email("test@example.com");
         let result = generate_auth_token(&email).unwrap();
         assert_eq!(result.split('.').count(), 3);
     }
 
     #[tokio::test]
     async fn test_validate_token_structure_with_valid_token() {
-        let email = Email::parse("test@example.com".to_owned()).unwrap();
+        let email = str_to_valid_email("test@example.com");
         let token = generate_auth_token(&email).unwrap();
         let result = validate_token_structure(&token).await.unwrap();
         assert_eq!(result.sub, "test@example.com");
@@ -226,7 +231,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_validate_token_with_valid_token() {
-        let email = Email::parse("test@example.com".to_owned()).unwrap();
+        let email = str_to_valid_email("test@example.com");
         let token = generate_auth_token(&email).unwrap();
         let banned_token_store = Arc::new(RwLock::new(HashMapBannedTokenStore::new()));
         let result = validate_token(banned_token_store, &token).await;
@@ -256,7 +261,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_validate_token_with_banned_token() {
-        let email = Email::parse("test@example.com".to_owned()).unwrap();
+        let email = str_to_valid_email("test@example.com");
         let token = generate_auth_token(&email).unwrap();
         let banned_token_store = Arc::new(RwLock::new(HashMapBannedTokenStore::new()));
 
@@ -273,7 +278,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_generate_password_reset_token() {
-        let email = Email::parse("test@example.com".to_string()).unwrap();
+        let email = str_to_valid_email("test@example.com");
         let result = generate_password_reset_token(&email);
 
         assert!(result.is_ok());
@@ -283,7 +288,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_generate_password_reset_token_expiration() {
-        let email = Email::parse("test@example.com".to_string()).unwrap();
+        let email = str_to_valid_email("test@example.com");
         let token = generate_password_reset_token(&email).unwrap();
 
         let claims = decode::<Claims>(
@@ -301,7 +306,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_validate_password_reset_token_valid() {
-        let email = Email::parse("test@example.com".to_string()).unwrap();
+        let email = str_to_valid_email("test@example.com");
         let token = generate_password_reset_token(&email).unwrap();
         let banned_token_store = Arc::new(RwLock::new(HashMapBannedTokenStore::new()));
         let result = validate_token(banned_token_store, &token).await;
@@ -309,16 +314,16 @@ mod tests {
         assert!(result.is_ok());
 
         let claims = result.unwrap();
-        assert_eq!(claims.sub, email.as_ref());
+        assert_eq!(claims.sub, email.as_ref().expose_secret().to_string());
         assert_eq!(claims.purpose, TokenPurpose::PasswordReset);
     }
 
     #[tokio::test]
     async fn test_validate_password_reset_token_invalid_purpose() {
-        let email = Email::parse("test@example.com".to_string()).unwrap();
+        let email = str_to_valid_email("test@example.com");
         let exp = (Utc::now().timestamp() + 3600) as Epoch;
         let claims = Claims {
-            sub: email.as_ref().to_string(),
+            sub: email.as_ref().expose_secret().to_string(),
             exp,
             purpose: TokenPurpose::Auth,
         };
@@ -333,10 +338,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_validate_password_reset_token_expired() {
-        let email = Email::parse("test@example.com".to_string()).unwrap();
+        let email = str_to_valid_email("test@example.com");
         let exp = (Utc::now().timestamp() - 3600) as Epoch; // 1 hour in the past
         let claims = Claims {
-            sub: email.as_ref().to_string(),
+            sub: email.as_ref().expose_secret().to_string(),
             exp,
             purpose: TokenPurpose::PasswordReset,
         };

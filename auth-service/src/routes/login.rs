@@ -17,7 +17,7 @@ use crate::utils::auth::generate_auth_cookie;
 
 #[derive(Deserialize, Debug)]
 pub struct LoginRequest {
-    pub email: String,
+    pub email: Secret<String>,
     pub password: Secret<String>,
 }
 

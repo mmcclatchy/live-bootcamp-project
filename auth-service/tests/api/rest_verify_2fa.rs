@@ -1,4 +1,5 @@
 use rstest::rstest;
+use secrecy::Secret;
 use serde_json::{json, Value};
 use uuid::Uuid;
 
@@ -13,6 +14,10 @@ use crate::helpers::RESTTestApp;
 const LOG_PREFIX: &str = "[TEST][rest_verify_2fa]";
 const TEST_EMAIL: &str = "test@example.com";
 const TEST_PASSWORD: &str = "P@ssw0rd";
+
+fn get_valid_email() -> Email {
+    Email::parse(Secret::new(TEST_EMAIL.to_string())).unwrap()
+}
 
 async fn get_two_fa_login_response(app: RESTTestApp) -> (RESTTestApp, TwoFactorAuthResponse) {
     let login_body = json!({
@@ -83,7 +88,7 @@ async fn should_return_401_if_incorrect_credentials() {
     let (mut app, login_response) = create_app_with_login_response().await;
 
     let two_fa_code_store = app.app_state.two_fa_code_store.read().await;
-    let email = Email::parse(TEST_EMAIL.to_string()).unwrap();
+    let email = get_valid_email();
     let (_, two_fa_code) = two_fa_code_store.get_code(&email).await.unwrap();
     drop(two_fa_code_store);
 
@@ -123,7 +128,7 @@ async fn should_return_401_if_old_code() {
     let (app, login_response) = create_app_with_login_response().await;
 
     let two_fa_code_store = app.app_state.two_fa_code_store.read().await;
-    let email = Email::parse(TEST_EMAIL.to_string()).unwrap();
+    let email = get_valid_email();
     let (_, two_fa_code) = two_fa_code_store.get_code(&email).await.unwrap();
     drop(two_fa_code_store);
 
@@ -146,7 +151,7 @@ async fn should_return_401_if_code_used_twice() {
     let (mut app, login_response) = create_app_with_login_response().await;
 
     let two_fa_code_store = app.app_state.two_fa_code_store.read().await;
-    let email = Email::parse(TEST_EMAIL.to_string()).unwrap();
+    let email = get_valid_email();
     let (_, two_fa_code) = two_fa_code_store.get_code(&email).await.unwrap();
     drop(two_fa_code_store);
 
@@ -170,7 +175,7 @@ async fn should_return_200_if_correct_code() {
     let (mut app, login_response) = create_app_with_login_response().await;
 
     let two_fa_code_store = app.app_state.two_fa_code_store.read().await;
-    let email = Email::parse(TEST_EMAIL.to_string()).unwrap();
+    let email = get_valid_email();
     let (_, two_fa_code) = two_fa_code_store.get_code(&email).await.unwrap();
     drop(two_fa_code_store);
 

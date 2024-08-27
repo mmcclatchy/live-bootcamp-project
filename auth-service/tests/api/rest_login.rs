@@ -29,7 +29,7 @@ fn create_login_body(email: &str, password: &str) -> Value {
 }
 
 async fn create_new_user(email: &str, password: &str, requires_2fa: bool) -> NewUser {
-    let email = Email::parse(email.to_string()).unwrap();
+    let email = Email::parse(Secret::new(email.to_string())).unwrap();
     let password = Password::parse(Secret::new(password.to_string())).await.unwrap();
     NewUser {
         email,
@@ -91,7 +91,8 @@ async fn should_return_400_if_invalid_input(#[case] email: &str, #[case] passwor
 async fn should_return_401_if_incorrect_credentials() {
     let mut app = RESTTestApp::new().await;
     let user = create_existing_user(app.app_state.clone(), false).await;
-    let login_body = json!({ "email": user.email.to_string(),  "password": "Inv@lid_passw0rd".to_string() });
+    let login_body =
+        json!({ "email": user.email.as_ref().expose_secret(),  "password": "Inv@lid_passw0rd".to_string() });
     let login_response = app.post_login(&login_body).await;
 
     assert_eq!(
@@ -108,7 +109,10 @@ async fn should_return_401_if_incorrect_credentials() {
 async fn should_return_200_if_valid_credentials_and_2fs_disabled() {
     let mut app = RESTTestApp::new().await;
     let user = create_existing_user(app.app_state.clone(), false).await;
-    let login_body = create_login_body(user.email.as_ref(), user.password.as_ref().expose_secret());
+    let login_body = create_login_body(
+        user.email.as_ref().expose_secret(),
+        user.password.as_ref().expose_secret(),
+    );
     let login_response = app.post_login(&login_body).await;
 
     println!(
@@ -133,7 +137,7 @@ async fn should_return_200_if_valid_credentials_and_2fs_disabled() {
     let claims = validate_token(app.app_state.banned_token_store.clone(), token)
         .await
         .unwrap();
-    assert_eq!(claims.sub, user.email.as_ref());
+    assert_eq!(claims.sub, user.email.as_ref().expose_secret().to_string());
     assert_eq!(claims.purpose, TokenPurpose::Auth);
 
     app.clean_up().await.unwrap();
@@ -143,7 +147,10 @@ async fn should_return_200_if_valid_credentials_and_2fs_disabled() {
 async fn should_return_206_if_valid_credentials_and_2fa_enabled() {
     let mut app = RESTTestApp::new().await;
     let user = create_existing_user(app.app_state.clone(), true).await;
-    let login_body = create_login_body(user.email.as_ref(), user.password.as_ref().expose_secret());
+    let login_body = create_login_body(
+        user.email.as_ref().expose_secret(),
+        user.password.as_ref().expose_secret(),
+    );
 
     println!("[TEST] {:?}", user);
 

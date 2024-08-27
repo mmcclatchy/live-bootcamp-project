@@ -16,7 +16,7 @@ use crate::services::app_state::{AppServices, AppState};
 
 #[derive(Deserialize, Debug)]
 pub struct SignupRequest {
-    email: String,
+    email: Secret<String>,
     password: Secret<String>,
     #[serde(rename = "requires2FA")]
     requires_2fa: bool,

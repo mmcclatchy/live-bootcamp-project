@@ -1,4 +1,5 @@
 use rstest::rstest;
+use secrecy::Secret;
 use serde_json::json;
 
 use auth_service::domain::data_stores::UserStore;
@@ -47,7 +48,7 @@ async fn rest_signup_should_return_201_if_valid_input() {
 
     let app_state = &app.app_state;
     let user_store = app_state.user_store.read().await;
-    let email = Email::parse(random_email).unwrap();
+    let email = Email::parse(Secret::new(random_email)).unwrap();
     let user = user_store.get_user(&email).await.expect("User not found");
 
     assert_eq!(user.email, email);

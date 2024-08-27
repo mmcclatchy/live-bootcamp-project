@@ -1,4 +1,5 @@
 use auth_service::{api::rest::ErrorResponse, domain::email::Email, utils::auth::generate_auth_token};
+use secrecy::Secret;
 use serde_json::json;
 
 use crate::helpers::{create_app_with_logged_in_token, get_random_email, RESTTestApp};
@@ -22,7 +23,7 @@ async fn should_return_422_if_malformed_input() {
 async fn should_return_200_valid_token() {
     let mut app = RESTTestApp::new().await;
     let email = get_random_email();
-    let email = Email::parse(email).unwrap();
+    let email = Email::parse(Secret::new(email)).unwrap();
     let token = generate_auth_token(&email).unwrap();
     let request_body = json!({ "token": token });
     let response = app.post_verify_token(&request_body).await;
