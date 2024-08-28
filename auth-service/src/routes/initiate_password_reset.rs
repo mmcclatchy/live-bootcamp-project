@@ -4,7 +4,7 @@ use std::{env as std_env, sync::Arc};
 use axum::{extract::State, Json};
 use color_eyre::eyre::eyre;
 use lazy_static::lazy_static;
-use secrecy::Secret;
+use secrecy::{ExposeSecret, Secret};
 use serde::{Deserialize, Serialize};
 
 use crate::services::app_state::{AppServices, AppState};
@@ -57,7 +57,7 @@ pub async fn post<'a, S: AppServices>(
     };
     let mut token_store = state.password_reset_token_store.write().await;
     token_store
-        .add_token(email.clone(), token.clone())
+        .add_token(email.clone(), token.expose_secret().to_string())
         .await
         .map_err(|e| AuthAPIError::UnexpectedError(e.into()))?;
 
@@ -65,7 +65,7 @@ pub async fn post<'a, S: AppServices>(
         Ok(auth_base_url) => auth_base_url,
         Err(_) => String::from("http://localhost/auth"),
     };
-    let email_content = format!("{auth_base_url}/reset-password?token={token}");
+    let email_content = format!("{auth_base_url}/reset-password?token={}", token.expose_secret());
     state
         .email_client
         .send_email(&email, "Password Reset Link", &email_content)

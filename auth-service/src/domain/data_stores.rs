@@ -2,7 +2,8 @@ use std::fmt;
 
 use color_eyre::eyre;
 use rand::Rng;
-use serde::{Deserialize, Serialize};
+use secrecy::{ExposeSecret, Secret};
+use serde::{ser::SerializeStruct, Deserialize, Serialize, Serializer};
 use thiserror;
 use uuid::Uuid;
 
@@ -22,8 +23,8 @@ pub trait UserStore: Clone + Send + Sync + 'static + fmt::Debug {
 
 #[async_trait::async_trait]
 pub trait BannedTokenStore: Clone + Send + Sync + 'static + fmt::Debug {
-    async fn add_token(&mut self, token: String) -> Result<(), TokenStoreError>;
-    async fn check_token(&self, token: String) -> Result<(), TokenStoreError>;
+    async fn add_token(&mut self, token: Secret<String>) -> Result<(), TokenStoreError>;
+    async fn check_token(&self, token: Secret<String>) -> Result<(), TokenStoreError>;
 }
 
 #[async_trait::async_trait]
@@ -87,12 +88,12 @@ pub enum TwoFACodeStoreError {
 
 //***********************  Structs  ************************//
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct LoginAttemptId(String);
+#[derive(Clone, Debug, Deserialize)]
+pub struct LoginAttemptId(Secret<String>);
 
 impl LoginAttemptId {
-    pub fn parse(id: String) -> Result<Self, String> {
-        match Uuid::parse_str(&id) {
+    pub fn parse(id: Secret<String>) -> Result<Self, String> {
+        match Uuid::parse_str(id.expose_secret()) {
             Err(_) => Err(String::from("Invalid Login Attempt Id")),
             Ok(_) => Ok(Self(id)),
         }
@@ -101,28 +102,39 @@ impl LoginAttemptId {
 
 impl Default for LoginAttemptId {
     fn default() -> Self {
-        Self(Uuid::new_v4().to_string())
+        Self(Secret::new(Uuid::new_v4().to_string()))
     }
 }
 
-impl AsRef<str> for LoginAttemptId {
-    fn as_ref(&self) -> &str {
+impl PartialEq for LoginAttemptId {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.expose_secret() == other.0.expose_secret()
+    }
+}
+
+impl Serialize for LoginAttemptId {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut state: <S as Serializer>::SerializeStruct = serializer.serialize_struct("LoginAttemptId", 1)?;
+        state.serialize_field("loginAttemptId", self.0.expose_secret())?;
+        state.end()
+    }
+}
+
+impl AsRef<Secret<String>> for LoginAttemptId {
+    fn as_ref(&self) -> &Secret<String> {
         &self.0
     }
 }
 
-impl fmt::Display for LoginAttemptId {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct TwoFACode(String);
+#[derive(Clone, Debug, Deserialize)]
+pub struct TwoFACode(Secret<String>);
 
 impl TwoFACode {
-    pub fn parse(code: String) -> Result<Self, String> {
-        match code.len() == 6 && code.chars().all(char::is_numeric) {
+    pub fn parse(code: Secret<String>) -> Result<Self, String> {
+        match code.expose_secret().len() == 6 && code.expose_secret().chars().all(char::is_numeric) {
             false => Err("Failed to parse Two-Factor Authorization Code".to_string()),
             true => Ok(Self(code)),
         }
@@ -133,19 +145,30 @@ impl Default for TwoFACode {
     fn default() -> Self {
         let mut range = rand::thread_rng();
         let code = (0..6).map(|_| range.gen_range(0..10).to_string()).collect();
-        Self(code)
+        Self(Secret::new(code))
     }
 }
 
-impl AsRef<str> for TwoFACode {
-    fn as_ref(&self) -> &str {
+impl PartialEq for TwoFACode {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.expose_secret() == other.0.expose_secret()
+    }
+}
+
+impl Serialize for TwoFACode {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut state: <S as Serializer>::SerializeStruct = serializer.serialize_struct("TwoFACode", 1)?;
+        state.serialize_field("2FACode", self.0.expose_secret())?;
+        state.end()
+    }
+}
+
+impl AsRef<Secret<String>> for TwoFACode {
+    fn as_ref(&self) -> &Secret<String> {
         &self.0
-    }
-}
-
-impl fmt::Display for TwoFACode {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.0)
     }
 }
 
@@ -160,23 +183,17 @@ mod login_attempt_id_tests {
     #[test]
     fn test_login_attempt_id_parse_valid() {
         let valid_uuid = Uuid::new_v4().to_string();
-        let result = LoginAttemptId::parse(valid_uuid.clone());
+        let result = LoginAttemptId::parse(Secret::new(valid_uuid.clone()));
         assert!(result.is_ok());
-        assert_eq!(result.unwrap().0, valid_uuid);
+        assert_eq!(result.unwrap().0.expose_secret(), &valid_uuid);
     }
 
     #[test]
     fn test_login_attempt_id_parse_invalid() {
         let invalid_uuid = "not-a-uuid".to_string();
-        let result = LoginAttemptId::parse(invalid_uuid);
+        let result = LoginAttemptId::parse(Secret::new(invalid_uuid));
         assert!(result.is_err());
         assert_eq!(result.unwrap_err(), "Invalid Login Attempt Id");
-    }
-
-    #[test]
-    fn test_login_attempt_id_default() {
-        let id = LoginAttemptId::default();
-        assert!(Uuid::parse_str(&id.as_ref()).is_ok());
     }
 }
 
@@ -184,17 +201,21 @@ mod login_attempt_id_tests {
 mod two_fa_code_tests {
     use super::*;
 
+    fn get_2fa_code_secret(code: &str) -> Secret<String> {
+        Secret::new(code.to_string())
+    }
+
     #[test]
     fn test_two_fa_code_parse_valid() {
-        let valid_code = "123456".to_string();
+        let valid_code = get_2fa_code_secret("123456");
         let result = TwoFACode::parse(valid_code.clone());
         assert!(result.is_ok());
-        assert_eq!(result.unwrap().0, valid_code);
+        assert_eq!(result.unwrap().0.expose_secret(), valid_code.expose_secret());
     }
 
     #[test]
     fn test_two_fa_code_parse_invalid_length() {
-        let invalid_code = "12345".to_string();
+        let invalid_code = get_2fa_code_secret("12345");
         let result = TwoFACode::parse(invalid_code);
         assert!(result.is_err());
         assert_eq!(result.unwrap_err(), "Failed to parse Two-Factor Authorization Code");
@@ -202,7 +223,7 @@ mod two_fa_code_tests {
 
     #[test]
     fn test_two_fa_code_parse_invalid_characters() {
-        let invalid_code = "12345a".to_string();
+        let invalid_code = get_2fa_code_secret("12345a");
         let result = TwoFACode::parse(invalid_code);
         assert!(result.is_err());
         assert_eq!(result.unwrap_err(), "Failed to parse Two-Factor Authorization Code");
@@ -211,7 +232,7 @@ mod two_fa_code_tests {
     #[test]
     fn test_two_fa_code_default() {
         let code = TwoFACode::default();
-        assert_eq!(code.0.len(), 6);
-        assert!(code.0.chars().all(char::is_numeric));
+        assert_eq!(code.0.expose_secret().len(), 6);
+        assert!(code.0.expose_secret().chars().all(char::is_numeric));
     }
 }

@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use axum::{extract::State, http::StatusCode, response::IntoResponse};
 use axum_extra::extract::{cookie, CookieJar};
+use secrecy::Secret;
 
 use crate::domain::{data_stores::BannedTokenStore, error::AuthAPIError};
 use crate::services::app_state::{AppServices, AppState};
@@ -16,8 +17,8 @@ pub async fn post<S: AppServices>(
         None => return Err(AuthAPIError::MissingToken),
     };
 
-    let token = cookie.value().to_owned();
-    validate_token(state.banned_token_store.clone(), &token)
+    let token = Secret::new(cookie.value().to_owned());
+    validate_token(state.banned_token_store.clone(), token.clone())
         .await
         .map_err(|_| AuthAPIError::InvalidToken)?;
 

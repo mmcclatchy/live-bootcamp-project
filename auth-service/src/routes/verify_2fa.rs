@@ -18,9 +18,9 @@ use crate::utils::auth::generate_auth_cookie;
 pub struct Verify2FARequest {
     email: Secret<String>,
     #[serde(rename = "loginAttemptId")]
-    login_attempt_id: String,
+    login_attempt_id: Secret<String>,
     #[serde(rename = "2FACode")]
-    two_factor_code: String,
+    two_factor_code: Secret<String>,
 }
 
 pub async fn post<S: AppServices>(
@@ -28,6 +28,7 @@ pub async fn post<S: AppServices>(
     jar: CookieJar,
     Json(payload): Json<Verify2FARequest>,
 ) -> Result<(CookieJar, impl IntoResponse), AuthAPIError> {
+    println!("[verify-2fa][post] Invoked");
     println!("[verify-2fa][post] {:?}", payload);
 
     let email = Email::parse(payload.email).map_err(AuthAPIError::InvalidEmail)?;

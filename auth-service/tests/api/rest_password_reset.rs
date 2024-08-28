@@ -3,6 +3,7 @@ use auth_service::utils::{
     auth::{validate_token, TokenPurpose},
     constants::JWT_COOKIE_NAME,
 };
+use secrecy::{ExposeSecret, Secret};
 use serde_json::json;
 
 #[tokio::test]
@@ -155,14 +156,14 @@ async fn reset_password_should_return_200_with_cookie_if_valid_token() {
     );
     assert!(!token.is_empty());
 
-    let claims = validate_token(app.app_state.banned_token_store.clone(), token)
+    let claims = validate_token(app.app_state.banned_token_store.clone(), Secret::new(token.to_string()))
         .await
         .unwrap();
     println!(
         "[TEST][initiate_password_reset_should_return_400_if_invalid_email] {:?}",
         claims
     );
-    assert_eq!(claims.sub, email);
+    assert_eq!(claims.sub.expose_secret(), &email);
     assert_eq!(claims.purpose, TokenPurpose::Auth);
 
     app.clean_up().await.unwrap();

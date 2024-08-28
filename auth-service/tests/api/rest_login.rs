@@ -134,10 +134,10 @@ async fn should_return_200_if_valid_credentials_and_2fs_disabled() {
     let token = auth_cookie.value();
     assert!(!token.is_empty());
 
-    let claims = validate_token(app.app_state.banned_token_store.clone(), token)
+    let claims = validate_token(app.app_state.banned_token_store.clone(), Secret::new(token.to_string()))
         .await
         .unwrap();
-    assert_eq!(claims.sub, user.email.as_ref().expose_secret().to_string());
+    assert_eq!(claims.sub.expose_secret(), user.email.as_ref().expose_secret());
     assert_eq!(claims.purpose, TokenPurpose::Auth);
 
     app.clean_up().await.unwrap();
@@ -165,7 +165,10 @@ async fn should_return_206_if_valid_credentials_and_2fa_enabled() {
 
     let two_fa_code_store = app.app_state.two_fa_code_store.read().await;
     let (login_attempt_id, _) = two_fa_code_store.get_code(&user.email).await.unwrap();
-    assert_eq!(response_body.login_attempt_id, login_attempt_id.to_string());
+    assert_eq!(
+        &response_body.login_attempt_id,
+        login_attempt_id.as_ref().expose_secret()
+    );
 
     drop(two_fa_code_store);
     app.clean_up().await.unwrap();

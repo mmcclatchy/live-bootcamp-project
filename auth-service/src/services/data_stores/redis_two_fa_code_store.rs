@@ -2,7 +2,7 @@ use std::{fmt::Debug, sync::Arc};
 
 use color_eyre::eyre::eyre;
 use redis::{Commands, Connection};
-use secrecy::ExposeSecret;
+use secrecy::{ExposeSecret, Secret};
 use serde::{Deserialize, Serialize};
 use serde_json::{from_str, json};
 use tokio::sync::RwLock;
@@ -39,7 +39,10 @@ impl TwoFACodeStore for RedisTwoFACodeStore {
     ) -> Result<(), TwoFACodeStoreError> {
         let mut conn = self.conn.write().await;
         let key = get_key(&email);
-        let two_fa_tuple = TwoFATuple(login_attempt_id.to_string(), code.to_string());
+        let two_fa_tuple = TwoFATuple(
+            login_attempt_id.as_ref().expose_secret().to_string(),
+            code.as_ref().expose_secret().to_string(),
+        );
         let two_fa_json = json!(two_fa_tuple).to_string();
 
         println!("[Redis2FACodeStore][add_code] {key}");
@@ -80,8 +83,8 @@ struct TwoFATuple(pub String, pub String);
 
 impl TwoFATuple {
     fn destructure(&self) -> Result<(LoginAttemptId, TwoFACode), String> {
-        let attempt_id = LoginAttemptId::parse(self.0.clone())?;
-        let code = TwoFACode::parse(self.1.clone())?;
+        let attempt_id = LoginAttemptId::parse(Secret::new(self.0.clone()))?;
+        let code = TwoFACode::parse(Secret::new(self.1.clone()))?;
         Ok((attempt_id, code))
     }
 }

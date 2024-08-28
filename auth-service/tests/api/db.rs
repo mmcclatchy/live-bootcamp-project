@@ -1,5 +1,6 @@
-use std::{fmt, str::FromStr, sync::Arc};
+use std::{fmt, ops::Deref, str::FromStr, sync::Arc};
 
+use secrecy::{ExposeSecret, Secret};
 use sqlx::{
     postgres::{PgConnectOptions, PgPoolOptions},
     Connection, Executor, PgConnection, PgPool,
@@ -44,7 +45,7 @@ pub async fn configure_postgresql() -> (PgPool, DbName) {
 
     configure_database(&postgresql_conn_url, &db_name).await;
 
-    let postgresql_conn_url_with_db = format!("{}/{}", postgresql_conn_url, db_name);
+    let postgresql_conn_url_with_db = Secret::new(format!("{}/{}", postgresql_conn_url, db_name));
 
     // Create a new connection pool and return it
     let pg_pool = get_postgres_pool(&postgresql_conn_url_with_db)
@@ -83,10 +84,10 @@ pub async fn configure_database(db_conn_string: &str, db_name: &str) {
 }
 
 pub async fn delete_database(db_name: &str) -> Result<(), String> {
-    let postgresql_conn_url: String = DATABASE_URL.to_owned();
+    let postgresql_conn_url = DATABASE_URL.deref().expose_secret();
 
     let connection_options =
-        PgConnectOptions::from_str(&postgresql_conn_url).expect("Failed to parse PostgreSQL connection string");
+        PgConnectOptions::from_str(postgresql_conn_url).expect("Failed to parse PostgreSQL connection string");
 
     let mut connection = PgConnection::connect_with(&connection_options)
         .await

@@ -1,5 +1,5 @@
 use auth_service::{api::rest::ErrorResponse, domain::email::Email, utils::auth::generate_auth_token};
-use secrecy::Secret;
+use secrecy::{ExposeSecret, Secret};
 use serde_json::json;
 
 use crate::helpers::{create_app_with_logged_in_token, get_random_email, RESTTestApp};
@@ -25,7 +25,7 @@ async fn should_return_200_valid_token() {
     let email = get_random_email();
     let email = Email::parse(Secret::new(email)).unwrap();
     let token = generate_auth_token(&email).unwrap();
-    let request_body = json!({ "token": token });
+    let request_body = json!({ "token": token.expose_secret() });
     let response = app.post_verify_token(&request_body).await;
     assert_eq!(
         response.status(),
@@ -72,7 +72,7 @@ async fn should_return_401_if_banned_token() {
         logout_response,
     );
 
-    let verify_token_request_body = json!({ "token": token });
+    let verify_token_request_body = json!({ "token": token.expose_secret() });
     let verify_token_response = app.post_verify_token(&verify_token_request_body).await;
     assert_eq!(
         verify_token_response.status(),

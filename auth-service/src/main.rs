@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{ops::Deref, sync::Arc};
 
 use auth_service::{
     get_postgres_pool, get_redis_client,
@@ -24,9 +24,7 @@ use tokio::sync::RwLock;
 #[tracing::instrument(name = "Configure PostgreSQL")]
 async fn configure_postgresql() -> PgPool {
     #[allow(clippy::to_string_in_format_args, clippy::unnecessary_to_owned)]
-    let prod_db_url = format!("{}/rust-bc", DATABASE_URL.to_string());
-    tracing::info!("[main][configure_postgresql] Attempting to connect to PostgreSQL at: {prod_db_url}");
-    let pg_pool = get_postgres_pool(&prod_db_url)
+    let pg_pool = get_postgres_pool(DATABASE_URL.deref())
         .await
         .expect("Failed to create Postgres connection pool!");
 

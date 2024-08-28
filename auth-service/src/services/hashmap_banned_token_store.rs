@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use secrecy::{ExposeSecret, Secret};
+
 use crate::domain::data_stores::{BannedTokenStore, TokenStoreError};
 use crate::utils::{auth::validate_token_structure, constants::Epoch};
 
@@ -22,16 +24,16 @@ impl Default for HashMapBannedTokenStore {
 
 #[async_trait::async_trait]
 impl BannedTokenStore for HashMapBannedTokenStore {
-    async fn add_token(&mut self, token: String) -> Result<(), TokenStoreError> {
-        let claims = validate_token_structure(&token)
+    async fn add_token(&mut self, token: Secret<String>) -> Result<(), TokenStoreError> {
+        let claims = validate_token_structure(token.expose_secret())
             .await
             .map_err(|_| TokenStoreError::InvalidToken)?;
-        self.tokens.insert(token.clone(), claims.exp);
+        self.tokens.insert(token.expose_secret().clone(), claims.exp);
         Ok(())
     }
 
-    async fn check_token(&self, token: String) -> Result<(), TokenStoreError> {
-        let response = match self.tokens.get(&token) {
+    async fn check_token(&self, token: Secret<String>) -> Result<(), TokenStoreError> {
+        let response = match self.tokens.get(token.expose_secret()) {
             Some(_) => Err(TokenStoreError::BannedToken),
             None => Ok(()),
         };
@@ -47,10 +49,9 @@ mod tests {
 
     use super::*;
 
-    fn create_token(email: &str) -> String {
+    fn create_token(email: &str) -> Secret<String> {
         let email = Email::parse(Secret::new(email.to_string())).unwrap();
-        let token = generate_auth_token(&email).unwrap();
-        token
+        generate_auth_token(&email).unwrap()
     }
 
     #[tokio::test]
@@ -60,7 +61,7 @@ mod tests {
         store.add_token(token.clone()).await.unwrap();
 
         assert_eq!(store.tokens.len(), 1);
-        assert!(store.tokens.get(&token).is_some());
+        assert!(store.tokens.get(token.expose_secret()).is_some());
     }
 
     #[tokio::test]

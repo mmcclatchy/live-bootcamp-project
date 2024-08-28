@@ -1,10 +1,11 @@
 use dotenvy::dotenv;
 use lazy_static::lazy_static;
+use secrecy::Secret;
 use std::env as std_env;
 
 lazy_static! {
-    pub static ref DATABASE_URL: String = set_required_env_var(env::DATABASE_URL_ENV_VAR);
-    pub static ref JWT_SECRET: String = set_required_env_var(env::JWT_SECRET_ENV_VAR);
+    pub static ref DATABASE_URL: Secret<String> = Secret::new(set_required_env_var(env::DATABASE_URL_ENV_VAR));
+    pub static ref JWT_SECRET: Secret<String> = Secret::new(set_required_env_var(env::JWT_SECRET_ENV_VAR));
     pub static ref REDIS_HOST_NAME: String = set_default_env_var(env::REDIS_HOST_NAME_ENV_VAR, DEFAULT_REDIS_HOST_NAME);
     pub static ref REST_AUTH_SERVICE_URL: String =
         set_default_env_var(env::REST_AUTH_SERVICE_URL_ENV_VAR, "http://localhost/auth");

@@ -1,3 +1,4 @@
+use std::fmt;
 use std::sync::Arc;
 
 use auth_service::services::data_stores::redis_banned_token_store::RedisBannedTokenStore;
@@ -134,8 +135,10 @@ impl RESTTestApp {
             .expect("[ERROR][RESTTestApp][post_verify_token] Failed to execute request.")
     }
 
-    pub async fn post_verify_2fa<Body: Serialize>(&self, body: &Body) -> reqwest::Response {
+    pub async fn post_verify_2fa<Body: Serialize + fmt::Debug>(&self, body: &Body) -> reqwest::Response {
         let client_url = format!("{}/verify-2fa", &self.address);
+        println!("[post_verify_2fa] {client_url}");
+        println!("[post_verify_2fa] {:?}", body);
         self.client
             .post(client_url)
             .json(body)
@@ -257,7 +260,7 @@ pub async fn wait_for_user<'a, T: UserStore>(
     Err(UserStoreError::UserNotFound)
 }
 
-pub async fn create_app_with_logged_in_token() -> (RESTTestApp, String) {
+pub async fn create_app_with_logged_in_token() -> (RESTTestApp, Secret<String>) {
     let app = RESTTestApp::new().await;
     let email = get_random_email();
     let signup_body = json!({
@@ -280,7 +283,7 @@ pub async fn create_app_with_logged_in_token() -> (RESTTestApp, String) {
     assert!(!cookie.value().is_empty());
     let token = cookie.value().to_string();
 
-    (app, token)
+    (app, Secret::new(token))
 }
 
 // pub fn print_app_state<S: AppServices>(app_state: &AppState<S>, prefix: &str) {

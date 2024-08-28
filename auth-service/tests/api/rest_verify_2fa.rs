@@ -1,5 +1,5 @@
 use rstest::rstest;
-use secrecy::Secret;
+use secrecy::{ExposeSecret, Secret};
 use serde_json::{json, Value};
 use uuid::Uuid;
 
@@ -92,16 +92,16 @@ async fn should_return_401_if_incorrect_credentials() {
     let (_, two_fa_code) = two_fa_code_store.get_code(&email).await.unwrap();
     drop(two_fa_code_store);
 
-    let invalid_two_fa_code = match two_fa_code.as_ref() {
-        "123456" => "654321",
-        _ => "123456",
+    let invalid_two_fa_code = match two_fa_code.as_ref().expose_secret().as_str() {
+        "123456" => "654321".to_string(),
+        _ => "123456".to_string(),
     };
 
     let test_cases = [
         json!({
             "email": TEST_EMAIL,
             "loginAttemptId": Uuid::new_v4().to_string(),
-            "2FACode": two_fa_code.as_ref(),
+            "2FACode": two_fa_code.as_ref().expose_secret().clone(),
         }),
         json!({
             "email": TEST_EMAIL,
@@ -137,7 +137,7 @@ async fn should_return_401_if_old_code() {
     let verify_2fa_body = json!({
         "email": TEST_EMAIL,
         "loginAttemptId": login_response.login_attempt_id,
-        "2FACode": two_fa_code.as_ref(),
+        "2FACode": two_fa_code.as_ref().expose_secret().clone(),
     });
 
     let verify_2fa_response = app.post_verify_2fa(&verify_2fa_body).await;
@@ -158,7 +158,7 @@ async fn should_return_401_if_code_used_twice() {
     let verify_2fa_body = json!({
         "email": TEST_EMAIL,
         "loginAttemptId": login_response.login_attempt_id,
-        "2FACode": two_fa_code.as_ref(),
+        "2FACode": two_fa_code.as_ref().expose_secret().clone(),
     });
 
     let verify_2fa_response = app.post_verify_2fa(&verify_2fa_body).await;
@@ -182,7 +182,7 @@ async fn should_return_200_if_correct_code() {
     let verify_2fa_body = json!({
         "email": TEST_EMAIL,
         "loginAttemptId": login_response.login_attempt_id,
-        "2FACode": two_fa_code.as_ref(),
+        "2FACode": two_fa_code.as_ref().expose_secret().clone(),
     });
 
     let verify_2fa_response = app.post_verify_2fa(&verify_2fa_body).await;

@@ -6,7 +6,7 @@ use axum::{extract::State, Json};
 use axum_extra::extract::CookieJar;
 use color_eyre::eyre::eyre;
 use log::info;
-use secrecy::Secret;
+use secrecy::{ExposeSecret, Secret};
 use serde::{Deserialize, Serialize};
 
 use crate::domain::data_stores::{LoginAttemptId, TwoFACode, TwoFACodeStore};
@@ -87,12 +87,16 @@ async fn handle_2fa<S: AppServices>(
 
     let response = TwoFactorAuthResponse {
         message: "2FA required".to_string(),
-        login_attempt_id: login_attempt_id.to_string(),
+        login_attempt_id: login_attempt_id.as_ref().expose_secret().to_string(),
     };
 
     if state
         .email_client
-        .send_email(&email, "Rust Live Boot-camp Authentication Code", two_fa_code.as_ref())
+        .send_email(
+            &email,
+            "Rust Live Boot-camp Authentication Code",
+            two_fa_code.as_ref().expose_secret(),
+        )
         .await
         .is_err()
     {

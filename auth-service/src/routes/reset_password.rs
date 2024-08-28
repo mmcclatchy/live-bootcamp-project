@@ -20,7 +20,7 @@ use crate::{
 
 #[derive(Debug, Deserialize)]
 pub struct ResetPasswordRequest {
-    token: String,
+    token: Secret<String>,
     new_password: Secret<String>,
 }
 
@@ -47,7 +47,7 @@ pub async fn post<S: AppServices>(
     let new_password = Password::parse(payload.new_password)
         .await
         .map_err(AuthAPIError::InvalidPassword)?;
-    let (email, claims) = validate_password_reset_token(state.banned_token_store.clone(), &payload.token)
+    let (email, claims) = validate_password_reset_token(state.banned_token_store.clone(), payload.token)
         .await
         .map_err(|_| AuthAPIError::InvalidToken)?;
 

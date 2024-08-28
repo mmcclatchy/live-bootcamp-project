@@ -1,6 +1,7 @@
 use std::{fmt, sync::Arc};
 
 use redis::{Commands, Connection};
+use secrecy::{ExposeSecret, Secret};
 use tokio::sync::RwLock;
 
 use crate::{
@@ -27,7 +28,7 @@ impl RedisBannedTokenStore {
 
 #[async_trait::async_trait]
 impl BannedTokenStore for RedisBannedTokenStore {
-    async fn add_token(&mut self, token: String) -> Result<(), TokenStoreError> {
+    async fn add_token(&mut self, token: Secret<String>) -> Result<(), TokenStoreError> {
         let mut conn = self.conn.write().await;
         let key = get_key(&token);
         conn.set_ex(key, true, TOKEN_TTL_SECONDS as u64)
@@ -36,7 +37,7 @@ impl BannedTokenStore for RedisBannedTokenStore {
         Ok(())
     }
 
-    async fn check_token(&self, token: String) -> Result<(), TokenStoreError> {
+    async fn check_token(&self, token: Secret<String>) -> Result<(), TokenStoreError> {
         let mut conn = self.conn.write().await;
         let key = get_key(&token);
         match conn
@@ -51,6 +52,6 @@ impl BannedTokenStore for RedisBannedTokenStore {
 
 const BANNED_TOKEN_KEY_PREFIX: &str = "banned_token:";
 
-fn get_key(token: &str) -> String {
-    format!("{}{}", BANNED_TOKEN_KEY_PREFIX, token)
+fn get_key(token: &Secret<String>) -> String {
+    format!("{}{}", BANNED_TOKEN_KEY_PREFIX, token.expose_secret())
 }
