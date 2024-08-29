@@ -13,6 +13,7 @@ pub struct VerifyTokenRequest {
     token: Secret<String>,
 }
 
+#[tracing::instrument(name = "Verify Auth Token POST Request")]
 pub async fn post<S: AppServices>(
     State(state): State<Arc<AppState<S>>>,
     Json(request): Json<VerifyTokenRequest>,

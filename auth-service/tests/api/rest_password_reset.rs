@@ -5,6 +5,10 @@ use auth_service::utils::{
 };
 use secrecy::{ExposeSecret, Secret};
 use serde_json::json;
+use wiremock::{
+    matchers::{method, path},
+    Mock, ResponseTemplate,
+};
 
 #[tokio::test]
 async fn initiate_password_reset_should_return_200_if_existing_email() {
@@ -18,6 +22,13 @@ async fn initiate_password_reset_should_return_200_if_existing_email() {
     });
     let signup_response = app.post_signup(&signup_body).await;
     assert_eq!(signup_response.status(), 201);
+
+    Mock::given(path("/email"))
+        .and(method("POST"))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(1)
+        .mount(&app.email_server)
+        .await;
 
     let init_reset_body = json!({ "email": email });
     let initiate_reset_response = app.post_initiate_password_reset(&init_reset_body).await;
@@ -46,6 +57,13 @@ async fn initiate_password_reset_should_return_200_if_non_existing_email() {
     let mut app = RESTTestApp::new().await;
     let non_existing_email = get_random_email();
 
+    Mock::given(path("/email"))
+        .and(method("POST"))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(0)
+        .mount(&app.email_server)
+        .await;
+
     let reset_body = json!({ "email": non_existing_email });
     let initiate_reset_response = app.post_initiate_password_reset(&reset_body).await;
     println!(
@@ -71,6 +89,13 @@ async fn initiate_password_reset_should_return_200_if_non_existing_email() {
 async fn initiate_password_reset_should_return_400_if_invalid_email() {
     let mut app = RESTTestApp::new().await;
     let reset_body = json!({ "email": "not-an-email" });
+
+    Mock::given(path("/email"))
+        .and(method("POST"))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(0)
+        .mount(&app.email_server)
+        .await;
 
     let initiate_reset_response = app.post_initiate_password_reset(&reset_body).await;
     println!(
@@ -105,6 +130,13 @@ async fn reset_password_should_return_200_with_cookie_if_valid_token() {
         signup_response
     );
     assert_eq!(signup_response.status(), 201);
+
+    Mock::given(path("/email"))
+        .and(method("POST"))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(1)
+        .mount(&app.email_server)
+        .await;
 
     let reset_init_body = json!({ "email": email });
     app.post_initiate_password_reset(&reset_init_body).await;
@@ -177,6 +209,13 @@ async fn reset_password_should_return_401_if_invalid_token_structure() {
         "new_password": "NewP@ssw0rd123"
     });
 
+    Mock::given(path("/email"))
+        .and(method("POST"))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(0)
+        .mount(&app.email_server)
+        .await;
+
     let reset_response = app.post_reset_password(&reset_body).await;
     println!(
         "[TEST][reset_password_should_return_401_if_invalid_token_structure] {:?}",
@@ -210,6 +249,13 @@ async fn reset_password_should_return_400_if_weak_password() {
         signup_response
     );
     assert_eq!(signup_response.status(), 201);
+
+    Mock::given(path("/email"))
+        .and(method("POST"))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(1)
+        .mount(&app.email_server)
+        .await;
 
     let reset_init_body = json!({
         "email": email

@@ -27,7 +27,7 @@ pub struct SignupResponse {
     message: String,
 }
 
-#[tracing::instrument(name = "Signup", skip_all, err(Debug))]
+#[tracing::instrument(name = "Signup POST Request", skip_all, err(Debug))]
 pub async fn post<S: AppServices>(
     State(state): State<Arc<AppState<S>>>,
     Json(payload): Json<SignupRequest>,

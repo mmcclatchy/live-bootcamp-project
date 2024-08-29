@@ -4,7 +4,9 @@ use std::sync::Arc;
 use auth_service::services::data_stores::redis_banned_token_store::RedisBannedTokenStore;
 use auth_service::services::data_stores::redis_password_reset_token_store::RedisPasswordResetTokenStore;
 use auth_service::services::data_stores::redis_two_fa_code_store::RedisTwoFACodeStore;
+use auth_service::services::postmark_email_client::PostmarkEmailClient;
 use reqwest::cookie::Jar;
+use reqwest::Client;
 use secrecy::Secret;
 use serde::Serialize;
 use serde_json::json;
@@ -33,15 +35,17 @@ use auth_service::{
     utils::constants::{test, JWT_COOKIE_NAME},
     GRPCApp, RESTApp,
 };
+use wiremock::MockServer;
 
 use crate::db::{configure_postgresql, configure_redis, delete_database};
 
 pub struct RESTTestApp {
     pub address: String,
     pub cookie_jar: Arc<Jar>,
-    pub client: reqwest::Client,
+    pub http_client: reqwest::Client,
     pub app_state: PersistentAppStateType,
     pub test_db_name: String,
+    pub email_server: MockServer,
     clean_up_called: bool,
 }
 
@@ -50,11 +54,12 @@ impl RESTTestApp {
         let (pg_pool, db_name) = configure_postgresql().await;
         let user_store = PostgresUserStore::new(pg_pool);
         let redis_conn = configure_redis();
+        let email_server = MockServer::start().await;
         let app_state = AppState::new_arc(
             RedisBannedTokenStore::new(redis_conn.clone()),
             user_store,
             RedisTwoFACodeStore::new(redis_conn.clone()),
-            MockEmailClient,
+            configure_postmark_email_client(email_server.uri()),
             RedisPasswordResetTokenStore::new(redis_conn.clone()),
         );
         let address = String::from(test::APP_REST_ADDRESS);
@@ -71,7 +76,7 @@ impl RESTTestApp {
         sleep(Duration::from_millis(100)).await;
 
         let cookie_jar = Arc::new(Jar::default());
-        let client = reqwest::Client::builder()
+        let http_client = reqwest::Client::builder()
             .cookie_provider(cookie_jar.clone())
             .build()
             .unwrap();
@@ -79,9 +84,10 @@ impl RESTTestApp {
         Self {
             address: format!("http://{address}"),
             cookie_jar,
-            client,
+            http_client,
             app_state: app_state.clone(),
             test_db_name: db_name.to_string(),
+            email_server,
             clean_up_called: false,
         }
     }
@@ -95,7 +101,7 @@ impl RESTTestApp {
     pub async fn post_signup<Body: Serialize>(&self, body: &Body) -> reqwest::Response {
         let client_url = format!("{}/signup", &self.address);
         println!("[RESTTestApp][post_signup] Client URL: {client_url}");
-        self.client
+        self.http_client
             .post(&client_url)
             .json(body)
             .send()
@@ -106,7 +112,7 @@ impl RESTTestApp {
     pub async fn post_login<Body: Serialize>(&self, body: &Body) -> reqwest::Response {
         let client_url = format!("{}/login", &self.address);
         println!("[RESTTestApp][post_login] Client URL: {client_url}");
-        self.client
+        self.http_client
             .post(client_url)
             .json(body)
             .send()
@@ -117,7 +123,7 @@ impl RESTTestApp {
     pub async fn post_logout(&self) -> reqwest::Response {
         let client_url = format!("{}/logout", &self.address);
         println!("[RESTTestApp][post_logout] Client URL: {client_url}");
-        self.client
+        self.http_client
             .post(client_url)
             .send()
             .await
@@ -127,7 +133,7 @@ impl RESTTestApp {
     pub async fn post_verify_token<Body: Serialize>(&self, body: &Body) -> reqwest::Response {
         let client_url = format!("{}/verify-token", &self.address);
         println!("[RESTTestApp][post_verify_token] Client URL: {client_url}");
-        self.client
+        self.http_client
             .post(client_url)
             .json(body)
             .send()
@@ -139,7 +145,7 @@ impl RESTTestApp {
         let client_url = format!("{}/verify-2fa", &self.address);
         println!("[post_verify_2fa] {client_url}");
         println!("[post_verify_2fa] {:?}", body);
-        self.client
+        self.http_client
             .post(client_url)
             .json(body)
             .send()
@@ -155,7 +161,7 @@ impl RESTTestApp {
     pub async fn post_initiate_password_reset<Body: Serialize>(&self, body: &Body) -> reqwest::Response {
         let client_url = format!("{}/initiate-password-reset", &self.address);
         println!("[RESTTestApp][post_initiate_password_reset] Client URL: {client_url}");
-        self.client
+        self.http_client
             .post(&client_url)
             .json(body)
             .send()
@@ -166,7 +172,7 @@ impl RESTTestApp {
     pub async fn post_reset_password<Body: Serialize>(&self, body: &Body) -> reqwest::Response {
         let client_url = format!("{}/reset-password", &self.address);
         println!("[RESTTestApp][post_reset_password] Client URL: {client_url}");
-        self.client
+        self.http_client
             .post(&client_url)
             .json(body)
             .send()
@@ -294,3 +300,16 @@ pub async fn create_app_with_logged_in_token() -> (RESTTestApp, Secret<String>) 
 //     println!("{prefix} {:?}", app_state.password_reset_token_store);
 //     println!("----------------------------------\n");
 // }
+
+fn configure_postmark_email_client(base_url: String) -> PostmarkEmailClient {
+    let postmark_auth_token = Secret::new("auth_token".to_owned());
+
+    let sender = Email::parse(Secret::new(test::email_client::SENDER.to_owned())).unwrap();
+
+    let http_client = Client::builder()
+        .timeout(test::email_client::TIMEOUT)
+        .build()
+        .expect("Failed to build HTTP client");
+
+    PostmarkEmailClient::new(base_url, sender, postmark_auth_token, http_client)
+}

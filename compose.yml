@@ -32,6 +32,7 @@ services:
       RUST_LOG: info
       RUST_BACKTRACE: 1
       JWT_SECRET: ${JWT_SECRET}
+      POSTMARK_AUTH_TOKEN: ${POSTMARK_AUTH_TOKEN}
     depends_on:
       - db
       - redis

@@ -11,6 +11,7 @@ use super::{
     hashmap_two_fa_code_store::HashMapTwoFACodeStore,
     hashmap_user_store::HashmapUserStore,
     mock_email_client::MockEmailClient,
+    postmark_email_client::PostmarkEmailClient,
 };
 
 #[derive(Debug)]
@@ -32,7 +33,7 @@ impl AppServices for PersistentServices {
     type UserStore = PostgresUserStore;
     type TwoFACodeStore = RedisTwoFACodeStore;
     type PasswordResetTokenStore = RedisPasswordResetTokenStore;
-    type EmailClient = MockEmailClient;
+    type EmailClient = PostmarkEmailClient;
 }
 
 pub type MemoryAppStateType = Arc<AppState<MemoryServices>>;

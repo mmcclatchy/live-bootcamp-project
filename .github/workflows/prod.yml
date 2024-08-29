@@ -108,6 +108,7 @@ jobs:
           cd ~
           echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" > .env
           export JWT_SECRET="${{ secrets.JWT_SECRET }}"
+          export POSTMARK_AUTH_TOKEN=${{ secrets.POSTMARK_AUTH_TOKEN }}
           docker compose down
           docker compose pull
           docker compose -f compose.yml up -d

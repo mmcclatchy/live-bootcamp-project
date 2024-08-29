@@ -1,6 +1,7 @@
 use std::{ops::Deref, sync::Arc};
 
 use auth_service::{
+    domain::email::Email,
     get_postgres_pool, get_redis_client,
     services::{
         app_state::AppState,
@@ -10,14 +11,15 @@ use auth_service::{
             redis_password_reset_token_store::RedisPasswordResetTokenStore,
             redis_two_fa_code_store::RedisTwoFACodeStore,
         },
-        mock_email_client::MockEmailClient,
+        postmark_email_client::PostmarkEmailClient,
     },
     utils::{
-        constants::{prod, DATABASE_URL, REDIS_HOST_NAME},
+        constants::{prod, DATABASE_URL, POSTMARK_AUTH_TOKEN, REDIS_HOST_NAME},
         tracing::init_tracing,
     },
     GRPCApp, RESTApp,
 };
+use reqwest::Client;
 use sqlx::PgPool;
 use tokio::sync::RwLock;
 
@@ -46,6 +48,20 @@ fn configure_redis() -> Arc<RwLock<redis::Connection>> {
     Arc::new(RwLock::new(conn))
 }
 
+fn configure_postmark_email_client() -> PostmarkEmailClient {
+    let http_client = Client::builder()
+        .timeout(prod::email_client::TIMEOUT)
+        .build()
+        .expect("Failed to build HTTP client");
+
+    PostmarkEmailClient::new(
+        prod::email_client::BASE_URL.to_owned(),
+        Email::parse(prod::email_client::SENDER.to_owned().into()).unwrap(),
+        POSTMARK_AUTH_TOKEN.to_owned(),
+        http_client,
+    )
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     color_eyre::install().expect("Failed to install color_eyre");
@@ -61,7 +77,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         RedisBannedTokenStore::new(redis_conn.clone()),
         PostgresUserStore::new(pg_pool),
         RedisTwoFACodeStore::new(redis_conn.clone()),
-        MockEmailClient,
+        configure_postmark_email_client(),
         RedisPasswordResetTokenStore::new(redis_conn.clone()),
     );
 

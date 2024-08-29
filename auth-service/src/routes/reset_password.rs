@@ -35,10 +35,12 @@ impl fmt::Display for ResetPasswordResponse {
     }
 }
 
+#[tracing::instrument(name = "Reset Password GET Request")]
 pub async fn get() -> impl IntoResponse {
     Html(include_str!("../../assets/index.html"))
 }
 
+#[tracing::instrument(name = "Reset Password POST Request")]
 pub async fn post<S: AppServices>(
     State(state): State<Arc<AppState<S>>>,
     jar: CookieJar,

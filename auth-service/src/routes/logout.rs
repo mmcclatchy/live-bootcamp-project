@@ -8,6 +8,7 @@ use crate::domain::{data_stores::BannedTokenStore, error::AuthAPIError};
 use crate::services::app_state::{AppServices, AppState};
 use crate::utils::{auth::validate_token, constants::JWT_COOKIE_NAME};
 
+#[tracing::instrument(name = "Logout POST Request")]
 pub async fn post<S: AppServices>(
     State(state): State<Arc<AppState<S>>>,
     jar: CookieJar,

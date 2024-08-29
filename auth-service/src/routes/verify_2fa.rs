@@ -23,6 +23,7 @@ pub struct Verify2FARequest {
     two_factor_code: Secret<String>,
 }
 
+#[tracing::instrument(name = "Verify 2FA POST Request")]
 pub async fn post<S: AppServices>(
     State(state): State<Arc<AppState<S>>>,
     jar: CookieJar,

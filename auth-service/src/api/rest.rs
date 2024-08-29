@@ -103,10 +103,13 @@ impl IntoResponse for AuthAPIError {
             AuthAPIError::InvalidEmail(msg) => (StatusCode::BAD_REQUEST, msg),
             AuthAPIError::InvalidPassword(report) => (StatusCode::BAD_REQUEST, report.to_string()),
             AuthAPIError::UserNotFound => (StatusCode::NOT_FOUND, "User not found".to_string()),
-            AuthAPIError::UnexpectedError(_) => (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "An unexpected error occurred".to_string(),
-            ),
+            AuthAPIError::UnexpectedError(e) => {
+                println!("[ERROR] UnexpectedError: {:?}", e);
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "An unexpected error occurred".to_string(),
+                )
+            }
             AuthAPIError::MissingToken => (StatusCode::BAD_REQUEST, "Missing auth token".to_string()),
             AuthAPIError::InvalidToken => (StatusCode::UNAUTHORIZED, "Invalid auth token".to_string()),
             AuthAPIError::InvalidLoginAttemptId => (StatusCode::BAD_REQUEST, "Invalid auth id".to_string()),

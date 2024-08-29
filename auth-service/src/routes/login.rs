@@ -35,12 +35,14 @@ pub enum LoginResponse {
     TwoFactorAuth(TwoFactorAuthResponse),
 }
 
+#[tracing::instrument(name = "Login POST Request")]
 pub async fn post<S: AppServices>(
     State(state): State<Arc<AppState<S>>>,
     jar: CookieJar,
     Json(payload): Json<LoginRequest>,
 ) -> Result<(CookieJar, impl IntoResponse), AuthAPIError> {
     info!("[REST][POST][/signup] Received request: {:?}", payload);
+    println!("[REST][POST][/signup] Received request: {:?}", payload);
 
     let email = Email::parse(payload.email).map_err(AuthAPIError::InvalidEmail)?;
     let password = Password::parse(payload.password)
