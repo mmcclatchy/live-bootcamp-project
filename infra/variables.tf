@@ -10,4 +10,3 @@ variable "namecheap_username" {}
 variable "personal_email_address" {}
 variable "postmark_auth_token" {}
 variable "subdomain_name" {}
-variable "zoho_record_address" {}

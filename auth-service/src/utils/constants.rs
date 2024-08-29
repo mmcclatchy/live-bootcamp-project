@@ -46,7 +46,7 @@ pub mod prod {
         use std::time::Duration;
 
         pub const BASE_URL: &str = "https://api.postmarkapp.com/email";
-        pub const SENDER: &str = "markmcclatchy@gmail.com";
+        pub const SENDER: &str = "do-not-reply@markmcclatchy.com";
         pub const TIMEOUT: Duration = std::time::Duration::from_secs(10);
     }
 }
