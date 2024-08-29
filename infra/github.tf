@@ -7,6 +7,11 @@ data "github_repository" "live_rust_bootcamp" {
   name = "live-bootcamp-project"
 }
 
+resource "random_password" "jwt_secret" {
+  length  = 64
+  special = false
+}
+
 resource "github_actions_secret" "admin_email" {
   repository      = data.github_repository.live_rust_bootcamp.name
   secret_name     = "ADMIN_EMAIL"
@@ -31,15 +36,16 @@ resource "github_actions_secret" "droplet_password" {
   plaintext_value = var.droplet_root_password
 }
 
-resource "random_password" "jwt_secret" {
-  length  = 64
-  special = false
-}
-
 resource "github_actions_secret" "jwt_secret" {
   repository      = data.github_repository.live_rust_bootcamp.name
   secret_name     = "JWT_SECRET"
   plaintext_value = random_password.jwt_secret.result
+}
+
+resource "github_actions_secret" "postmark_auth_token" {
+  repository      = data.github_repository.live_rust_bootcamp.name
+  secret_name     = "POSTMARK_AUTH_TOKEN"
+  plaintext_value = var.postmark_auth_token
 }
 
 resource "github_actions_variable" "domain_name" {
