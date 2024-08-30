@@ -2,7 +2,6 @@ use color_eyre::eyre::Result;
 use reqwest::{Client, Url};
 use secrecy::{ExposeSecret, Secret};
 use serde::Serialize;
-use tracing::debug;
 
 use crate::{
     domain::{
@@ -92,17 +91,11 @@ impl EmailClient for PostmarkEmailClient {
             template_model: template.to_model(),
         };
 
-        println!("[PostmarkEmailClient][send_email] Request Body: {:?}", request_body);
-        debug!("[PostmarkEmailClient][send_email] Request Body: {:?}", request_body);
-
         let request = self
             .http_client
             .post(url)
             .header(POSTMARK_AUTH_HEADER, self.authorization_token.expose_secret())
             .json(&request_body);
-
-        println!("[PostmarkEmailClient][send_email] Request: {:?}", request);
-        debug!("[PostmarkEmailClient][send_email] Request: {:?}", request);
 
         request.send().await?.error_for_status()?;
 
@@ -150,7 +143,6 @@ mod tests {
             if let Ok(body) = result {
                 body.get("From").is_some()
                     && body.get("To").is_some()
-                    && body.get("Subject").is_some()
                     && body.get("TemplateAlias").is_some()
                     && body.get("MessageStream").is_some()
                     && body.get("TemplateModel").is_some()
@@ -169,7 +161,7 @@ mod tests {
         // Set up the mock server to expect a specific request
         Mock::given(header_exists(POSTMARK_AUTH_HEADER))
             .and(header("Content-Type", "application/json"))
-            .and(path("/email"))
+            .and(path("/email/withTemplate"))
             .and(method("POST"))
             .and(SendEmailBodyMatcher)
             .respond_with(ResponseTemplate::new(200))
