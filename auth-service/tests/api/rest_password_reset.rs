@@ -23,7 +23,7 @@ async fn initiate_password_reset_should_return_200_if_existing_email() {
     let signup_response = app.post_signup(&signup_body).await;
     assert_eq!(signup_response.status(), 201);
 
-    Mock::given(path("/email"))
+    Mock::given(path("/email/withTemplate"))
         .and(method("POST"))
         .respond_with(ResponseTemplate::new(200))
         .expect(1)
@@ -57,7 +57,7 @@ async fn initiate_password_reset_should_return_200_if_non_existing_email() {
     let mut app = RESTTestApp::new().await;
     let non_existing_email = get_random_email();
 
-    Mock::given(path("/email"))
+    Mock::given(path("/email/withTemplate"))
         .and(method("POST"))
         .respond_with(ResponseTemplate::new(200))
         .expect(0)
@@ -90,7 +90,7 @@ async fn initiate_password_reset_should_return_400_if_invalid_email() {
     let mut app = RESTTestApp::new().await;
     let reset_body = json!({ "email": "not-an-email" });
 
-    Mock::given(path("/email"))
+    Mock::given(path("/email/withTemplate"))
         .and(method("POST"))
         .respond_with(ResponseTemplate::new(200))
         .expect(0)
@@ -131,7 +131,7 @@ async fn reset_password_should_return_200_with_cookie_if_valid_token() {
     );
     assert_eq!(signup_response.status(), 201);
 
-    Mock::given(path("/email"))
+    Mock::given(path("/email/withTemplate"))
         .and(method("POST"))
         .respond_with(ResponseTemplate::new(200))
         .expect(1)
@@ -209,7 +209,7 @@ async fn reset_password_should_return_401_if_invalid_token_structure() {
         "new_password": "NewP@ssw0rd123"
     });
 
-    Mock::given(path("/email"))
+    Mock::given(path("/email/withTemplate"))
         .and(method("POST"))
         .respond_with(ResponseTemplate::new(200))
         .expect(0)
@@ -250,7 +250,7 @@ async fn reset_password_should_return_400_if_weak_password() {
     );
     assert_eq!(signup_response.status(), 201);
 
-    Mock::given(path("/email"))
+    Mock::given(path("/email/withTemplate"))
         .and(method("POST"))
         .respond_with(ResponseTemplate::new(200))
         .expect(1)

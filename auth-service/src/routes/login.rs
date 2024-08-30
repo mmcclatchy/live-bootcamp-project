@@ -5,7 +5,6 @@ use axum::response::IntoResponse;
 use axum::{extract::State, Json};
 use axum_extra::extract::CookieJar;
 use color_eyre::eyre::eyre;
-use log::info;
 use secrecy::Secret;
 use serde::{Deserialize, Serialize};
 
@@ -43,9 +42,6 @@ pub async fn post<S: AppServices>(
     jar: CookieJar,
     Json(payload): Json<LoginRequest>,
 ) -> Result<(CookieJar, impl IntoResponse), AuthAPIError> {
-    info!("[REST][POST][/signup] Received request: {:?}", payload);
-    println!("[REST][POST][/signup] Received request: {:?}", payload);
-
     let email = Email::parse(payload.email).map_err(AuthAPIError::InvalidEmail)?;
     let password = Password::parse(payload.password)
         .await

@@ -15,6 +15,7 @@ use hyper::Method;
 use log::info;
 use serde::{Deserialize, Serialize};
 use tower_http::{cors::CorsLayer, services::ServeDir, trace::TraceLayer};
+use tracing::error;
 
 use crate::routes;
 use crate::services::app_state::{AppServices, AppState};
@@ -104,7 +105,7 @@ impl IntoResponse for AuthAPIError {
             AuthAPIError::InvalidPassword(report) => (StatusCode::BAD_REQUEST, report.to_string()),
             AuthAPIError::UserNotFound => (StatusCode::NOT_FOUND, "User not found".to_string()),
             AuthAPIError::UnexpectedError(e) => {
-                println!("[ERROR] UnexpectedError: {:?}", e);
+                error!("UnexpectedError: {:?}", e);
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     "An unexpected error occurred".to_string(),

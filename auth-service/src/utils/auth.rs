@@ -6,11 +6,11 @@ use axum_extra::extract::cookie::{Cookie, SameSite};
 use chrono::Utc;
 use color_eyre::eyre::{eyre, Report, Result};
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Validation};
-use log::error;
 use macros::SecretString;
 use secrecy::{ExposeSecret, Secret};
 use serde::{ser::SerializeStruct, Deserialize, Serialize};
 use tokio::sync::RwLock;
+use tracing::error;
 
 use crate::domain::{data_stores::BannedTokenStore, email::Email};
 
@@ -143,8 +143,7 @@ pub async fn validate_token_structure(token: &str) -> Result<Claims, GenerateTok
     ) {
         Ok(data) => data,
         Err(error) => {
-            error!("[ERROR][validate_token_structure] {:?}", error);
-            println!("[ERROR][validate_token_structure] {:?}", error);
+            error!("{:?}", error);
             return Err(GenerateTokenError::TokenError(error.into()));
         }
     };

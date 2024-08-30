@@ -1,8 +1,10 @@
+use std::env as std_env;
+
 use dotenvy::dotenv;
 use lazy_static::lazy_static;
 use secrecy::Secret;
 use serde::Serialize;
-use std::env as std_env;
+use tracing::debug;
 
 lazy_static! {
     pub static ref DATABASE_URL: Secret<String> = Secret::new(set_required_env_var(env::DATABASE_URL_ENV_VAR));
@@ -20,11 +22,10 @@ fn set_default_env_var(var_name: &str, default_value: &str) -> String {
 }
 
 fn set_required_env_var(var_name: &str) -> String {
-    println!("Attempting to obtain {var_name} environment variable");
+    debug!("Attempting to obtain {var_name} environment variable");
     dotenv().ok();
-    println!("dotenv Ok");
+    debug!("dotenv Ok");
     let var_value = std_env::var(var_name).expect("{var_name} must be set.");
-    println!("{var_name}:  {var_value}");
     if var_value.is_empty() {
         panic!("{var_name} must not be empty.");
     }

@@ -5,6 +5,7 @@ use axum_extra::extract::CookieJar;
 use secrecy::Secret;
 use serde::Deserialize;
 use tokio::time::timeout;
+use tracing::debug;
 
 use crate::domain::{
     data_stores::{LoginAttemptId, TwoFACode, TwoFACodeStore},
@@ -29,16 +30,13 @@ pub async fn post<S: AppServices>(
     jar: CookieJar,
     Json(payload): Json<Verify2FARequest>,
 ) -> Result<(CookieJar, impl IntoResponse), AuthAPIError> {
-    println!("[verify-2fa][post] Invoked");
-    println!("[verify-2fa][post] {:?}", payload);
-
     let email = Email::parse(payload.email).map_err(AuthAPIError::InvalidEmail)?;
     let login_attempt_id =
         LoginAttemptId::parse(payload.login_attempt_id).map_err(|_| AuthAPIError::InvalidLoginAttemptId)?;
     let two_factor_code =
         TwoFACode::parse(payload.two_factor_code).map_err(|_| AuthAPIError::InvalidTwoFactorAuthCode)?;
 
-    println!("[verify-2fa][post] payload successfully parsed");
+    debug!("payload successfully parsed");
 
     // Use a timeout when acquiring the lock to prevent indefinite waiting
     let mut two_fa_code_store = match timeout(Duration::from_secs(5), state.two_fa_code_store.write()).await {
@@ -50,10 +48,10 @@ pub async fn post<S: AppServices>(
         Ok(result) => result,
         Err(_) => return Err(AuthAPIError::InvalidCredentials),
     };
-    println!("[verify-2fa][post] Two factor code retrieved from store");
+    debug!("Two factor code retrieved from store");
 
     if login_attempt_id != stored_attempt_id || two_factor_code != stored_2fa_code {
-        println!("[verify-2fa][post] Incorrect login_attempt_id and two_factor_code");
+        debug!("Incorrect login_attempt_id and two_factor_code");
         return Err(AuthAPIError::InvalidCredentials);
     }
 
@@ -61,13 +59,13 @@ pub async fn post<S: AppServices>(
         .remove_code(&email)
         .await
         .map_err(|e| AuthAPIError::UnexpectedError(e.into()))?;
-    println!("[verify-2fa][post] Two factor auth code successfully removed from store");
+    debug!("Two factor auth code successfully removed from store");
 
     drop(two_fa_code_store);
 
     let auth_cookie = generate_auth_cookie(&email).map_err(|e| AuthAPIError::UnexpectedError(e.into()))?;
     let updated_jar = jar.add(auth_cookie);
-    println!("[verify-2fa][post] Auth cookie successfully created");
+    debug!("Auth cookie successfully created");
 
     Ok((updated_jar, StatusCode::OK.into_response()))
 }

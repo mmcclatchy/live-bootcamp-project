@@ -158,7 +158,7 @@ async fn should_return_206_if_valid_credentials_and_2fa_enabled() {
 
     println!("[TEST] {:?}", user);
 
-    Mock::given(path("/email"))
+    Mock::given(path("/email/withTemplate"))
         .and(method("POST"))
         .respond_with(ResponseTemplate::new(200))
         .expect(1)

@@ -6,6 +6,7 @@ use secrecy::{ExposeSecret, Secret};
 use serde::{Deserialize, Serialize};
 use serde_json::{from_str, json};
 use tokio::sync::RwLock;
+use tracing::debug;
 
 use crate::{
     domain::{
@@ -45,13 +46,13 @@ impl TwoFACodeStore for RedisTwoFACodeStore {
         let two_fa_tuple = TwoFATuple(login_attempt_id.expose_secret_string(), code.expose_secret_string());
         let two_fa_json = json!(two_fa_tuple).to_string();
 
-        println!("[Redis2FACodeStore][add_code] {key}");
-        println!("[Redis2FACodeStore][add_code] {two_fa_json}");
+        debug!("[Redis2FACodeStore][add_code] {key}");
+        debug!("[Redis2FACodeStore][add_code] {two_fa_json}");
 
         conn.set_ex(key, two_fa_json, Time::Minutes10 as u64)
             .map_err(|e| TwoFACodeStoreError::UnexpectedError(e.into()))?;
 
-        println!("[Redis2FACodeStore][add_code] 2FA Code Set");
+        debug!("[Redis2FACodeStore][add_code] 2FA Code Set");
 
         Ok(())
     }

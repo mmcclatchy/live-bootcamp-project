@@ -43,7 +43,7 @@ async fn create_app_with_login_response(expected_email_calls: u64) -> (RESTTestA
     let app = RESTTestApp::new().await;
     let email = get_valid_email();
 
-    Mock::given(path("/email"))
+    Mock::given(path("/email/withTemplate"))
         .and(method("POST"))
         .respond_with(ResponseTemplate::new(200))
         .expect(expected_email_calls)
