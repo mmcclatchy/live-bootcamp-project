@@ -1,6 +1,7 @@
 use dotenvy::dotenv;
 use lazy_static::lazy_static;
 use secrecy::Secret;
+use serde::Serialize;
 use std::env as std_env;
 
 lazy_static! {
@@ -65,8 +66,26 @@ pub mod test {
 }
 
 pub const JWT_COOKIE_NAME: &str = "jwt";
-pub const TOKEN_TTL_SECONDS: i64 = 600;
-pub const PASSWORD_RESET_TOKEN_TTL_SECONDS: i64 = 3600;
+pub const TOKEN_TTL_SECONDS: i64 = Time::Minutes10 as i64;
+pub const PASSWORD_RESET_TOKEN_TTL_SECONDS: i64 = Time::Hours1 as i64;
 pub const DEFAULT_REDIS_HOST_NAME: &str = "127.0.0.1";
 
 pub type Epoch = u32;
+
+#[derive(Serialize, Debug, Clone)]
+pub enum Time {
+    Minutes10 = 600,
+    Minutes15 = 900,
+    Hours1 = 3600,
+}
+
+impl std::fmt::Display for Time {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let time_str = match self {
+            Self::Minutes10 => "10 Minutes",
+            Self::Minutes15 => "15 Minutes",
+            Self::Hours1 => "1 Hour",
+        };
+        write!(f, "{time_str}")
+    }
+}

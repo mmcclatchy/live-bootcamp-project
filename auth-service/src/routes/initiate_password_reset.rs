@@ -1,5 +1,5 @@
 use core::fmt;
-use std::{env as std_env, sync::Arc};
+use std::sync::Arc;
 
 use axum::{extract::State, Json};
 use color_eyre::eyre::eyre;
@@ -7,17 +7,16 @@ use lazy_static::lazy_static;
 use secrecy::{ExposeSecret, Secret};
 use serde::{Deserialize, Serialize};
 
-use crate::services::app_state::{AppServices, AppState};
-use crate::utils::auth::generate_password_reset_token;
-use crate::{
-    domain::{
-        data_stores::{PasswordResetTokenStore, UserStore},
-        email::Email,
-        email_client::EmailClient,
-        error::AuthAPIError,
-    },
-    utils::constants::env,
+use crate::domain::{
+    data_stores::{PasswordResetTokenStore, UserStore},
+    email::Email,
+    email_client::EmailClient,
+    error::AuthAPIError,
 };
+use crate::services::app_state::{AppServices, AppState};
+use crate::services::postmark_email_client::PostmarkTemplate;
+use crate::utils::auth::generate_password_reset_token;
+use crate::utils::constants::Time;
 
 lazy_static! {
     static ref INITIATE_PASSWORD_RESPONSE: InitiatePasswordResetResponse = InitiatePasswordResetResponse {
@@ -61,14 +60,10 @@ pub async fn post<'a, S: AppServices>(
         .await
         .map_err(|e| AuthAPIError::UnexpectedError(e.into()))?;
 
-    let auth_base_url = match std_env::var(env::REST_AUTH_SERVICE_URL_ENV_VAR) {
-        Ok(auth_base_url) => auth_base_url,
-        Err(_) => String::from("http://localhost/auth"),
-    };
-    let email_content = format!("{auth_base_url}/reset-password?token={}", token.expose_secret());
+    let template_model = PostmarkTemplate::PasswordReset(Time::Minutes15, token.expose_secret().to_string());
     state
         .email_client
-        .send_email(&email, "Password Reset Link", &email_content)
+        .send_email(&email, "Password Reset Link", template_model)
         .await
         .map_err(|err_msg| AuthAPIError::UnexpectedError(eyre!(err_msg)))?;
 

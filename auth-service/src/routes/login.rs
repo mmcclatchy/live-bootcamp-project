@@ -13,7 +13,9 @@ use crate::domain::data_stores::{LoginAttemptId, TwoFACode, TwoFACodeStore};
 use crate::domain::email_client::EmailClient;
 use crate::domain::{data_stores::UserStore, email::Email, error::AuthAPIError, password::Password};
 use crate::services::app_state::{AppServices, AppState};
+use crate::services::postmark_email_client::PostmarkTemplate;
 use crate::utils::auth::generate_auth_cookie;
+use crate::utils::constants::Time;
 
 #[derive(Deserialize, Debug)]
 pub struct LoginRequest {
@@ -92,13 +94,11 @@ async fn handle_2fa<S: AppServices>(
         login_attempt_id: login_attempt_id.as_ref().expose_secret().to_string(),
     };
 
+    let template_model = PostmarkTemplate::TwoFACode(Time::Minutes10, two_fa_code);
+
     if state
         .email_client
-        .send_email(
-            &email,
-            "Rust Live Boot-camp Authentication Code",
-            two_fa_code.as_ref().expose_secret(),
-        )
+        .send_email(&email, "Rust Live Boot-camp Authentication Code", template_model)
         .await
         .is_err()
     {

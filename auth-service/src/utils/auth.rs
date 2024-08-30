@@ -13,7 +13,7 @@ use tokio::sync::RwLock;
 
 use crate::domain::{data_stores::BannedTokenStore, email::Email};
 
-use super::constants::{Epoch, JWT_COOKIE_NAME, JWT_SECRET, PASSWORD_RESET_TOKEN_TTL_SECONDS, TOKEN_TTL_SECONDS};
+use super::constants::{Epoch, Time, JWT_COOKIE_NAME, JWT_SECRET, TOKEN_TTL_SECONDS};
 
 #[derive(Debug, thiserror::Error)]
 pub enum GenerateTokenError {
@@ -25,7 +25,7 @@ pub enum GenerateTokenError {
     UnexpectedError(#[source] Report),
 }
 
-#[derive(Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, PartialEq, Clone)]
 pub enum TokenPurpose {
     Auth,
     PasswordReset,
@@ -140,9 +140,9 @@ pub fn create_token(claims: &Claims) -> Result<Secret<String>, jsonwebtoken::err
 
 #[tracing::instrument(name = "Generate Password Reset Token", skip_all)]
 pub fn generate_password_reset_token(email: &Email) -> Result<Secret<String>, GenerateTokenError> {
-    let delta = chrono::Duration::try_seconds(PASSWORD_RESET_TOKEN_TTL_SECONDS).ok_or(
-        GenerateTokenError::UnexpectedError(eyre!("Failed to obtain chrono duration")),
-    )?;
+    let delta = chrono::Duration::try_seconds(Time::Minutes15 as i64).ok_or(GenerateTokenError::UnexpectedError(
+        eyre!("Failed to obtain chrono duration"),
+    ))?;
     let exp: Epoch = Utc::now()
         .checked_add_signed(delta)
         .ok_or(GenerateTokenError::UnexpectedError(eyre!(
@@ -197,7 +197,10 @@ pub fn compute_password_hash(password: Secret<String>) -> Result<Secret<String>>
 
 #[cfg(test)]
 mod tests {
-    use crate::services::hashmap_banned_token_store::HashMapBannedTokenStore;
+    use crate::{
+        services::hashmap_banned_token_store::HashMapBannedTokenStore,
+        utils::constants::PASSWORD_RESET_TOKEN_TTL_SECONDS,
+    };
 
     use super::*;
 

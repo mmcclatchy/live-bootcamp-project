@@ -1,8 +1,16 @@
 use color_eyre::eyre::Result;
 use reqwest::{Client, Url};
 use secrecy::{ExposeSecret, Secret};
+use serde::Serialize;
 
-use crate::domain::{email::Email, email_client::EmailClient};
+use crate::{
+    domain::{
+        data_stores::TwoFACode,
+        email::Email,
+        email_client::{EmailClient, TemplateModel},
+    },
+    utils::constants::{Time, REST_AUTH_SERVICE_URL},
+};
 
 const MESSAGE_STREAM: &str = "outbound";
 const POSTMARK_AUTH_HEADER: &str = "X-Postmark-Server-Token";
@@ -26,21 +34,50 @@ impl PostmarkEmailClient {
     }
 }
 
+#[derive(Clone, Debug, Serialize)]
+pub enum PostmarkTemplate {
+    PasswordReset(Time, String),
+    TwoFACode(Time, TwoFACode),
+}
+
+impl PostmarkTemplate {
+    fn to_model(&self) -> TemplateModel {
+        match self {
+            Self::PasswordReset(time, token) => {
+                let auth_base_url = REST_AUTH_SERVICE_URL.to_string();
+                let url = format!("{auth_base_url}/reset-password?token={token}");
+                TemplateModel::new(time.to_string(), url)
+            }
+            Self::TwoFACode(time, two_fa_code) => {
+                let model_content = two_fa_code.as_ref().expose_secret().to_string();
+                TemplateModel::new(time.to_string(), model_content)
+            }
+        }
+    }
+
+    fn alias(&self) -> &str {
+        match self {
+            Self::PasswordReset(_, _) => "password-reset",
+            Self::TwoFACode(_, _) => "two-fa-code",
+        }
+    }
+}
+
 #[derive(serde::Serialize, Debug)]
 #[serde(rename_all = "PascalCase")]
 struct SendEmailRequest<'a> {
     from: &'a str,
     to: &'a str,
     subject: &'a str,
-    html_body: &'a str,
-    text_body: &'a str,
     message_stream: &'a str,
+    template_alias: &'a str,
+    template_model: TemplateModel,
 }
 
 #[async_trait::async_trait]
 impl EmailClient for PostmarkEmailClient {
     #[tracing::instrument(name = "Sending email", skip_all)]
-    async fn send_email(&self, recipient: &Email, subject: &str, content: &str) -> Result<()> {
+    async fn send_email(&self, recipient: &Email, subject: &str, template: PostmarkTemplate) -> Result<()> {
         let base = Url::parse(&self.base_url)?;
         let url = base.join("/email")?;
 
@@ -48,9 +85,9 @@ impl EmailClient for PostmarkEmailClient {
             from: self.sender.as_ref().expose_secret(),
             to: recipient.as_ref().expose_secret(),
             subject,
-            html_body: content,
-            text_body: content,
             message_stream: MESSAGE_STREAM,
+            template_alias: template.alias(),
+            template_model: template.to_model(),
         };
 
         let request = self
@@ -71,7 +108,7 @@ mod tests {
 
     use super::*;
     use fake::faker::internet::en::SafeEmail;
-    use fake::faker::lorem::en::{Paragraph, Sentence};
+    use fake::faker::lorem::en::Sentence;
     use fake::{Fake, Faker};
     use wiremock::matchers::{any, header, header_exists, method, path};
     use wiremock::{Mock, MockServer, Request, ResponseTemplate};
@@ -84,8 +121,8 @@ mod tests {
     }
 
     // Helper function to generate test content
-    fn content() -> String {
-        Paragraph(1..10).fake()
+    fn template() -> PostmarkTemplate {
+        PostmarkTemplate::TwoFACode(Time::Minutes10, TwoFACode::default())
     }
 
     // Helper function to generate a test email
@@ -95,8 +132,11 @@ mod tests {
 
     // Helper function to create a test email client
     fn email_client(base_url: String) -> PostmarkEmailClient {
+        println!("[email_client] base_url: {base_url}");
         let http_client = Client::builder().timeout(test::email_client::TIMEOUT).build().unwrap();
-        PostmarkEmailClient::new(base_url, email(), Secret::new(Faker.fake()), http_client)
+        let client = PostmarkEmailClient::new(base_url, email(), Secret::new(Faker.fake()), http_client);
+        println!("[email_client] Email Client: {:?}", client);
+        client
     }
 
     // Custom matcher to validate the email request body
@@ -109,9 +149,9 @@ mod tests {
                 body.get("From").is_some()
                     && body.get("To").is_some()
                     && body.get("Subject").is_some()
-                    && body.get("HtmlBody").is_some()
-                    && body.get("TextBody").is_some()
+                    && body.get("TemplateAlias").is_some()
                     && body.get("MessageStream").is_some()
+                    && body.get("TemplateModel").is_some()
             } else {
                 false
             }
@@ -135,9 +175,18 @@ mod tests {
             .mount(&mock_server)
             .await;
 
-        // Execute the send_email function and check the outcome
-        let outcome = email_client.send_email(&email(), &subject(), &content()).await;
+        println!(
+            "[send_email_sends_the_expected_request] Mock Server:  {:?}",
+            mock_server
+        );
+        println!(
+            "[send_email_sends_the_expected_request] Email Client: {:?}",
+            email_client
+        );
 
+        // Execute the send_email function and check the outcome
+        let outcome = email_client.send_email(&email(), &subject(), template()).await;
+        println!("[send_email_sends_the_expected_request] Outcome: {:?}", outcome);
         assert!(outcome.is_ok());
     }
 
@@ -155,27 +204,24 @@ mod tests {
             .await;
 
         // Execute the send_email function and check the outcome
-        let outcome = email_client.send_email(&email(), &subject(), &content()).await;
+        let outcome = email_client.send_email(&email(), &subject(), template()).await;
 
         assert!(outcome.is_err());
     }
 
-    // Test to handle request timeouts
     #[tokio::test]
     async fn send_email_times_out_if_the_server_takes_too_long() {
         let mock_server = MockServer::start().await;
         let email_client = email_client(mock_server.uri());
 
-        // Set up the mock server to delay the response
-        let response = ResponseTemplate::new(200).set_delay(std::time::Duration::from_secs(180)); // 3 minutes delay
+        let response = ResponseTemplate::new(200).set_delay(std::time::Duration::from_secs(180));
         Mock::given(any())
             .respond_with(response)
             .expect(1)
             .mount(&mock_server)
             .await;
 
-        // Execute the send_email function and check the outcome
-        let outcome = email_client.send_email(&email(), &subject(), &content()).await;
+        let outcome = email_client.send_email(&email(), &subject(), template()).await;
 
         assert!(outcome.is_err());
     }

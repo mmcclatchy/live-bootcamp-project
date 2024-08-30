@@ -7,9 +7,12 @@ use serde::{Deserialize, Serialize};
 use serde_json::{from_str, json};
 use tokio::sync::RwLock;
 
-use crate::domain::{
-    data_stores::{LoginAttemptId, TwoFACode, TwoFACodeStore, TwoFACodeStoreError},
-    email::Email,
+use crate::{
+    domain::{
+        data_stores::{LoginAttemptId, TwoFACode, TwoFACodeStore, TwoFACodeStoreError},
+        email::Email,
+    },
+    utils::constants::Time,
 };
 
 #[derive(Clone)]
@@ -48,7 +51,7 @@ impl TwoFACodeStore for RedisTwoFACodeStore {
         println!("[Redis2FACodeStore][add_code] {key}");
         println!("[Redis2FACodeStore][add_code] {two_fa_json}");
 
-        conn.set_ex(key, two_fa_json, TEN_MINUTES_IN_SECONDS)
+        conn.set_ex(key, two_fa_json, Time::Minutes10 as u64)
             .map_err(|e| TwoFACodeStoreError::UnexpectedError(e.into()))?;
 
         println!("[Redis2FACodeStore][add_code] 2FA Code Set");
@@ -89,7 +92,6 @@ impl TwoFATuple {
     }
 }
 
-const TEN_MINUTES_IN_SECONDS: u64 = 600;
 const TWO_FA_CODE_PREFIX: &str = "two_fa_code:";
 
 fn get_key(email: &Email) -> String {
