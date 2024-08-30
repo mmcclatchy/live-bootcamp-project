@@ -1,9 +1,12 @@
 use std::{borrow::Cow, hash::Hash};
 
 use secrecy::{ExposeSecret, Secret};
+use serde::{ser::SerializeStruct, Serialize};
 use validator::ValidateEmail;
 
-#[derive(Debug, Clone)]
+use macros::SecretString;
+
+#[derive(Clone, Debug, SecretString)]
 pub struct Email(Secret<String>);
 
 impl Email {
@@ -23,21 +26,9 @@ impl ValidateEmail for Email {
     }
 }
 
-impl AsRef<Secret<String>> for Email {
-    fn as_ref(&self) -> &Secret<String> {
-        &self.0
-    }
-}
-
 impl Hash for Email {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.0.expose_secret().hash(state)
-    }
-}
-
-impl PartialEq for Email {
-    fn eq(&self, other: &Self) -> bool {
-        self.0.expose_secret() == other.0.expose_secret()
     }
 }
 
@@ -59,7 +50,7 @@ mod tests {
         let email: String = SafeEmail().fake();
         let result = string_to_email_result(email.clone());
         assert!(result.is_ok());
-        assert_eq!(result.unwrap().as_ref().expose_secret().to_string(), email);
+        assert_eq!(result.unwrap().expose_secret_string(), email);
     }
 
     #[test]
@@ -84,6 +75,6 @@ mod tests {
     fn test_as_ref() {
         let email_string = "test@email.com".to_string();
         let email = string_to_email_result(email_string.clone()).unwrap();
-        assert_eq!(email.as_ref().expose_secret().to_string(), email_string);
+        assert_eq!(email.expose_secret_string(), email_string);
     }
 }

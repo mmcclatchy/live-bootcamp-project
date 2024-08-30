@@ -4,6 +4,7 @@ members = [
   "auth-service",
   "app-service/proto",
   "auth-service/proto",
+  "auth-service/macros",
 ]
 
 resolver = "2"

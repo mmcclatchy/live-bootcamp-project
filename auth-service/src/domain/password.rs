@@ -1,11 +1,14 @@
 use color_eyre::eyre::{eyre, Result};
 
 use secrecy::{ExposeSecret, Secret};
+use serde::{ser::SerializeStruct, Serialize};
+
+use macros::SecretString;
 
 const ERROR_MESSAGE: &str =
     "Invalid Password: Must be at least 8 characters long, contain at least one uppercase character and one number";
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, SecretString)]
 pub struct Password(Secret<String>);
 
 impl Password {
@@ -17,18 +20,6 @@ impl Password {
             return Err(eyre!(ERROR_MESSAGE.to_string()));
         }
         Ok(Self(s))
-    }
-}
-
-impl AsRef<Secret<String>> for Password {
-    fn as_ref(&self) -> &Secret<String> {
-        &self.0
-    }
-}
-
-impl PartialEq for Password {
-    fn eq(&self, other: &Self) -> bool {
-        self.0.expose_secret() == other.0.expose_secret()
     }
 }
 

@@ -3,9 +3,11 @@ use std::fmt;
 use color_eyre::eyre;
 use rand::Rng;
 use secrecy::{ExposeSecret, Secret};
-use serde::{ser::SerializeStruct, Deserialize, Serialize, Serializer};
+use serde::{ser::SerializeStruct, Deserialize, Serialize};
 use thiserror;
 use uuid::Uuid;
+
+use macros::SecretString;
 
 use super::user::{NewUser, User};
 
@@ -88,7 +90,7 @@ pub enum TwoFACodeStoreError {
 
 //***********************  Structs  ************************//
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, SecretString)]
 pub struct LoginAttemptId(Secret<String>);
 
 impl LoginAttemptId {
@@ -106,30 +108,8 @@ impl Default for LoginAttemptId {
     }
 }
 
-impl PartialEq for LoginAttemptId {
-    fn eq(&self, other: &Self) -> bool {
-        self.0.expose_secret() == other.0.expose_secret()
-    }
-}
-
-impl Serialize for LoginAttemptId {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let mut state: <S as Serializer>::SerializeStruct = serializer.serialize_struct("LoginAttemptId", 1)?;
-        state.serialize_field("loginAttemptId", self.0.expose_secret())?;
-        state.end()
-    }
-}
-
-impl AsRef<Secret<String>> for LoginAttemptId {
-    fn as_ref(&self) -> &Secret<String> {
-        &self.0
-    }
-}
-
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, SecretString)]
+#[secret_string(field_name = "2FACode")]
 pub struct TwoFACode(Secret<String>);
 
 impl TwoFACode {
@@ -146,29 +126,6 @@ impl Default for TwoFACode {
         let mut range = rand::thread_rng();
         let code = (0..6).map(|_| range.gen_range(0..10).to_string()).collect();
         Self(Secret::new(code))
-    }
-}
-
-impl PartialEq for TwoFACode {
-    fn eq(&self, other: &Self) -> bool {
-        self.0.expose_secret() == other.0.expose_secret()
-    }
-}
-
-impl Serialize for TwoFACode {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let mut state: <S as Serializer>::SerializeStruct = serializer.serialize_struct("TwoFACode", 1)?;
-        state.serialize_field("2FACode", self.0.expose_secret())?;
-        state.end()
-    }
-}
-
-impl AsRef<Secret<String>> for TwoFACode {
-    fn as_ref(&self) -> &Secret<String> {
-        &self.0
     }
 }
 
