@@ -7,6 +7,7 @@ use chrono::Utc;
 use color_eyre::eyre::{eyre, Report, Result};
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Validation};
 use log::error;
+use macros::SecretString;
 use secrecy::{ExposeSecret, Secret};
 use serde::{ser::SerializeStruct, Deserialize, Serialize};
 use tokio::sync::RwLock;
@@ -21,6 +22,8 @@ pub enum GenerateTokenError {
     TokenError(#[source] Report),
     #[error("Banned token")]
     BannedToken,
+    #[error("Invalid token purpose")]
+    InvalidTokenPurpose,
     #[error("Unexpected error")]
     UnexpectedError(#[source] Report),
 }
@@ -57,6 +60,42 @@ impl Serialize for Claims {
         state.serialize_field("exp", &self.exp)?;
         state.serialize_field("purpose", &self.purpose)?;
         state.end()
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, SecretString)]
+pub struct AuthToken(Secret<String>);
+
+impl AuthToken {
+    pub fn new(email: &Email) -> Result<Self, GenerateTokenError> {
+        let auth_token = generate_auth_token(email)?;
+        Ok(Self(auth_token))
+    }
+
+    pub async fn parse(token: String) -> Result<Self, GenerateTokenError> {
+        let claims = validate_token_structure(&token).await?;
+        if claims.purpose != TokenPurpose::Auth {
+            return Err(GenerateTokenError::InvalidTokenPurpose);
+        }
+        Ok(Self(Secret::new(token)))
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, SecretString)]
+pub struct PasswordResetToken(Secret<String>);
+
+impl PasswordResetToken {
+    pub fn new(email: &Email) -> Result<Self, GenerateTokenError> {
+        let auth_token = generate_password_reset_token(email)?;
+        Ok(Self(auth_token))
+    }
+
+    pub async fn parse(token: String) -> Result<Self, GenerateTokenError> {
+        let claims = validate_token_structure(&token).await?;
+        if claims.purpose != TokenPurpose::PasswordReset {
+            return Err(GenerateTokenError::InvalidTokenPurpose);
+        }
+        Ok(Self(Secret::new(token)))
     }
 }
 
@@ -284,7 +323,6 @@ mod tests {
         let token = generate_auth_token(&email).unwrap();
         let banned_token_store = Arc::new(RwLock::new(HashMapBannedTokenStore::new()));
 
-        // Ban the token
         {
             let mut store = banned_token_store.write().await;
             store.add_token(token.clone()).await.unwrap();

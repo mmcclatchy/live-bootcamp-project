@@ -9,7 +9,10 @@ use crate::{
         email::Email,
         email_client::{EmailClient, TemplateModel},
     },
-    utils::constants::{Time, REST_AUTH_SERVICE_URL},
+    utils::{
+        auth::PasswordResetToken,
+        constants::{Time, REST_AUTH_SERVICE_URL},
+    },
 };
 
 const MESSAGE_STREAM: &str = "outbound";
@@ -36,7 +39,7 @@ impl PostmarkEmailClient {
 
 #[derive(Clone, Debug, Serialize)]
 pub enum PostmarkTemplate {
-    PasswordReset(Time, String),
+    PasswordReset(Time, PasswordResetToken),
     TwoFACode(Time, TwoFACode),
 }
 
@@ -45,11 +48,11 @@ impl PostmarkTemplate {
         match self {
             Self::PasswordReset(time, token) => {
                 let auth_base_url = REST_AUTH_SERVICE_URL.to_string();
-                let url = format!("{auth_base_url}/reset-password?token={token}");
+                let url = format!("{auth_base_url}/reset-password?token={}", token.expose_secret_string());
                 TemplateModel::new(time.to_string(), url)
             }
             Self::TwoFACode(time, two_fa_code) => {
-                let model_content = two_fa_code.as_ref().expose_secret().to_string();
+                let model_content = two_fa_code.expose_secret_string();
                 TemplateModel::new(time.to_string(), model_content)
             }
         }

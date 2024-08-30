@@ -42,10 +42,7 @@ impl TwoFACodeStore for RedisTwoFACodeStore {
     ) -> Result<(), TwoFACodeStoreError> {
         let mut conn = self.conn.write().await;
         let key = get_key(&email);
-        let two_fa_tuple = TwoFATuple(
-            login_attempt_id.as_ref().expose_secret().to_string(),
-            code.as_ref().expose_secret().to_string(),
-        );
+        let two_fa_tuple = TwoFATuple(login_attempt_id.expose_secret_string(), code.expose_secret_string());
         let two_fa_json = json!(two_fa_tuple).to_string();
 
         println!("[Redis2FACodeStore][add_code] {key}");

@@ -28,6 +28,7 @@ impl RedisBannedTokenStore {
 
 #[async_trait::async_trait]
 impl BannedTokenStore for RedisBannedTokenStore {
+    #[tracing::instrument(name = "RedisBannedTokenStore Add Token")]
     async fn add_token(&mut self, token: Secret<String>) -> Result<(), TokenStoreError> {
         let mut conn = self.conn.write().await;
         let key = get_key(&token);
@@ -37,6 +38,7 @@ impl BannedTokenStore for RedisBannedTokenStore {
         Ok(())
     }
 
+    #[tracing::instrument(name = "RedisBannedTokenStore Check Token")]
     async fn check_token(&self, token: Secret<String>) -> Result<(), TokenStoreError> {
         let mut conn = self.conn.write().await;
         let key = get_key(&token);

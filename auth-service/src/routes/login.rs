@@ -6,7 +6,7 @@ use axum::{extract::State, Json};
 use axum_extra::extract::CookieJar;
 use color_eyre::eyre::eyre;
 use log::info;
-use secrecy::{ExposeSecret, Secret};
+use secrecy::Secret;
 use serde::{Deserialize, Serialize};
 
 use crate::domain::data_stores::{LoginAttemptId, TwoFACode, TwoFACodeStore};
@@ -91,7 +91,7 @@ async fn handle_2fa<S: AppServices>(
 
     let response = TwoFactorAuthResponse {
         message: "2FA required".to_string(),
-        login_attempt_id: login_attempt_id.as_ref().expose_secret().to_string(),
+        login_attempt_id: login_attempt_id.expose_secret_string(),
     };
 
     let template_model = PostmarkTemplate::TwoFACode(Time::Minutes10, two_fa_code);

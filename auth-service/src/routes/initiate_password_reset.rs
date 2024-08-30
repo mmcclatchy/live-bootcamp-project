@@ -4,19 +4,21 @@ use std::sync::Arc;
 use axum::{extract::State, Json};
 use color_eyre::eyre::eyre;
 use lazy_static::lazy_static;
-use secrecy::{ExposeSecret, Secret};
+use secrecy::Secret;
 use serde::{Deserialize, Serialize};
 
-use crate::domain::{
-    data_stores::{PasswordResetTokenStore, UserStore},
-    email::Email,
-    email_client::EmailClient,
-    error::AuthAPIError,
-};
 use crate::services::app_state::{AppServices, AppState};
 use crate::services::postmark_email_client::PostmarkTemplate;
-use crate::utils::auth::generate_password_reset_token;
 use crate::utils::constants::Time;
+use crate::{
+    domain::{
+        data_stores::{PasswordResetTokenStore, UserStore},
+        email::Email,
+        email_client::EmailClient,
+        error::AuthAPIError,
+    },
+    utils::auth::PasswordResetToken,
+};
 
 lazy_static! {
     static ref INITIATE_PASSWORD_RESPONSE: InitiatePasswordResetResponse = InitiatePasswordResetResponse {
@@ -40,6 +42,7 @@ impl fmt::Display for InitiatePasswordResetResponse {
     }
 }
 
+#[tracing::instrument(name = "Initiate Password Reset POST Request")]
 pub async fn post<'a, S: AppServices>(
     State(state): State<Arc<AppState<S>>>,
     Json(payload): Json<InitiatePasswordResetRequest>,
@@ -49,18 +52,18 @@ pub async fn post<'a, S: AppServices>(
     let user_store = state.user_store.read().await;
     let token = match user_store.get_user(&email).await {
         Err(_) => return Ok(Json(INITIATE_PASSWORD_RESPONSE.clone())),
-        Ok(_) => match generate_password_reset_token(&email) {
+        Ok(_) => match PasswordResetToken::new(&email) {
             Err(_) => return Ok(Json(INITIATE_PASSWORD_RESPONSE.clone())),
             Ok(token) => token,
         },
     };
     let mut token_store = state.password_reset_token_store.write().await;
     token_store
-        .add_token(email.clone(), token.expose_secret().to_string())
+        .add_token(email.clone(), token.expose_secret_string())
         .await
         .map_err(|e| AuthAPIError::UnexpectedError(e.into()))?;
 
-    let template_model = PostmarkTemplate::PasswordReset(Time::Minutes15, token.expose_secret().to_string());
+    let template_model = PostmarkTemplate::PasswordReset(Time::Minutes15, token);
     state
         .email_client
         .send_email(&email, "Password Reset Link", template_model)
