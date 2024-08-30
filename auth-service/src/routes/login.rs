@@ -96,12 +96,7 @@ async fn handle_2fa<S: AppServices>(
 
     let template_model = PostmarkTemplate::TwoFACode(Time::Minutes10, two_fa_code);
 
-    if state
-        .email_client
-        .send_email(&email, "Rust Live Boot-camp Authentication Code", template_model)
-        .await
-        .is_err()
-    {
+    if state.email_client.send_email(&email, template_model).await.is_err() {
         tracing::info!("Error sending 2FA email");
         return Err(AuthAPIError::UnexpectedError(eyre!("Failed to send 2FA email")));
     };

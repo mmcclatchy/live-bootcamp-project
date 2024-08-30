@@ -2,6 +2,7 @@ use color_eyre::eyre::Result;
 use reqwest::{Client, Url};
 use secrecy::{ExposeSecret, Secret};
 use serde::Serialize;
+use tracing::debug;
 
 use crate::{
     domain::{
@@ -71,7 +72,6 @@ impl PostmarkTemplate {
 struct SendEmailRequest<'a> {
     from: &'a str,
     to: &'a str,
-    subject: &'a str,
     message_stream: &'a str,
     template_alias: &'a str,
     template_model: TemplateModel,
@@ -80,24 +80,29 @@ struct SendEmailRequest<'a> {
 #[async_trait::async_trait]
 impl EmailClient for PostmarkEmailClient {
     #[tracing::instrument(name = "Sending email", skip_all)]
-    async fn send_email(&self, recipient: &Email, subject: &str, template: PostmarkTemplate) -> Result<()> {
+    async fn send_email(&self, recipient: &Email, template: PostmarkTemplate) -> Result<()> {
         let base = Url::parse(&self.base_url)?;
-        let url = base.join("/email")?;
+        let url = base.join("/email/withTemplate")?;
 
         let request_body = SendEmailRequest {
             from: self.sender.as_ref().expose_secret(),
             to: recipient.as_ref().expose_secret(),
-            subject,
             message_stream: MESSAGE_STREAM,
             template_alias: template.alias(),
             template_model: template.to_model(),
         };
+
+        println!("[PostmarkEmailClient][send_email] Request Body: {:?}", request_body);
+        debug!("[PostmarkEmailClient][send_email] Request Body: {:?}", request_body);
 
         let request = self
             .http_client
             .post(url)
             .header(POSTMARK_AUTH_HEADER, self.authorization_token.expose_secret())
             .json(&request_body);
+
+        println!("[PostmarkEmailClient][send_email] Request: {:?}", request);
+        debug!("[PostmarkEmailClient][send_email] Request: {:?}", request);
 
         request.send().await?.error_for_status()?;
 
@@ -111,17 +116,11 @@ mod tests {
 
     use super::*;
     use fake::faker::internet::en::SafeEmail;
-    use fake::faker::lorem::en::Sentence;
     use fake::{Fake, Faker};
     use wiremock::matchers::{any, header, header_exists, method, path};
     use wiremock::{Mock, MockServer, Request, ResponseTemplate};
 
     use super::PostmarkEmailClient;
-
-    // Helper function to generate a test subject
-    fn subject() -> String {
-        Sentence(1..2).fake()
-    }
 
     // Helper function to generate test content
     fn template() -> PostmarkTemplate {
@@ -188,7 +187,7 @@ mod tests {
         );
 
         // Execute the send_email function and check the outcome
-        let outcome = email_client.send_email(&email(), &subject(), template()).await;
+        let outcome = email_client.send_email(&email(), template()).await;
         println!("[send_email_sends_the_expected_request] Outcome: {:?}", outcome);
         assert!(outcome.is_ok());
     }
@@ -207,7 +206,7 @@ mod tests {
             .await;
 
         // Execute the send_email function and check the outcome
-        let outcome = email_client.send_email(&email(), &subject(), template()).await;
+        let outcome = email_client.send_email(&email(), template()).await;
 
         assert!(outcome.is_err());
     }
@@ -224,7 +223,7 @@ mod tests {
             .mount(&mock_server)
             .await;
 
-        let outcome = email_client.send_email(&email(), &subject(), template()).await;
+        let outcome = email_client.send_email(&email(), template()).await;
 
         assert!(outcome.is_err());
     }

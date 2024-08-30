@@ -66,7 +66,7 @@ pub async fn post<'a, S: AppServices>(
     let template_model = PostmarkTemplate::PasswordReset(Time::Minutes15, token);
     state
         .email_client
-        .send_email(&email, "Password Reset Link", template_model)
+        .send_email(&email, template_model)
         .await
         .map_err(|err_msg| AuthAPIError::UnexpectedError(eyre!(err_msg)))?;
 

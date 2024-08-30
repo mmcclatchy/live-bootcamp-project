@@ -11,9 +11,9 @@ pub struct MockEmailClient;
 
 #[async_trait::async_trait]
 impl EmailClient for MockEmailClient {
-    async fn send_email(&self, recipient: &Email, subject: &str, template: PostmarkTemplate) -> Result<()> {
+    async fn send_email(&self, recipient: &Email, template: PostmarkTemplate) -> Result<()> {
         println!(
-            "Sending email to {} with subject: {subject} and content {}",
+            "Sending email to {} with template model {}",
             recipient.as_ref().expose_secret(),
             json!(template)
         );
