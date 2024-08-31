@@ -152,6 +152,7 @@ jobs:
           JWT_SECRET=${{ secrets.JWT_SECRET }}
           POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
           POSTMARK_AUTH_TOKEN=${{ secrets.POSTMARK_AUTH_TOKEN }}
+          REDIS_HOST_NAME=redis
           EOF
 
           # Load the environment variables

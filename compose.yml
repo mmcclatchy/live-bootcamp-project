@@ -33,6 +33,7 @@ services:
       RUST_BACKTRACE: 1
       JWT_SECRET: ${JWT_SECRET}
       POSTMARK_AUTH_TOKEN: ${POSTMARK_AUTH_TOKEN}
+      REDIS_HOST_NAME: ${REDIS_HOST_NAME}
     depends_on:
       - db
       - redis
