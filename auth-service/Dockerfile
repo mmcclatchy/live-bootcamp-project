@@ -12,9 +12,6 @@ WORKDIR /app
 
 COPY . .
 
-ARG DATABASE_URL
-
-ENV DATABASE_URL=${DATABASE_URL}
 ENV REDIS_HOST_NAME=redis
 
 # Build the application
