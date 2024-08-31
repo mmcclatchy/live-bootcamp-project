@@ -11,6 +11,22 @@ jobs:
     runs-on: ubuntu-latest
     env:
       ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+
+    services:
+      postgres:
+        image: postgres:13
+        env:
+          POSTGRES_USER: ${{ env.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ env.POSTGRES_PASSWORD }}
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       # Checkout code from the repository
@@ -48,6 +64,8 @@ jobs:
 
     - name: Build and test auth-service code
       working-directory: ./auth-service
+      env:
+        DATABASE_URL: postgresql://${{ env.POSTGRES_USER }}:${{ env.POSTGRES_PASSWORD }}@localhost:5432
       run: |
         export JWT_SECRET=secret
         cargo build --verbose
@@ -106,8 +124,9 @@ jobs:
 
         script: |
           cd ~
-          echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" > .env
+          export DATABASE_URL=postgres://postgres:${{ secrets.POSTGRES_PASSWORD }}@localhost:5432
           export JWT_SECRET="${{ secrets.JWT_SECRET }}"
+          export POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
           export POSTMARK_AUTH_TOKEN=${{ secrets.POSTMARK_AUTH_TOKEN }}
           docker compose down
           docker compose pull

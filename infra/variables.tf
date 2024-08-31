@@ -8,5 +8,6 @@ variable "github_username" {}
 variable "namecheap_api_key" {}
 variable "namecheap_username" {}
 variable "personal_email_address" {}
+variable "postgres_password" {}
 variable "postmark_auth_token" {}
 variable "subdomain_name" {}

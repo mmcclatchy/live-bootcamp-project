@@ -42,6 +42,12 @@ resource "github_actions_secret" "jwt_secret" {
   plaintext_value = random_password.jwt_secret.result
 }
 
+resource "github_actions_secret" "postgres_password" {
+  repository      = data.github_repository.live_rust_bootcamp.name
+  secret_name     = "POSTGRES_PASSWORD"
+  plaintext_value = var.postgres_password
+}
+
 resource "github_actions_secret" "postmark_auth_token" {
   repository      = data.github_repository.live_rust_bootcamp.name
   secret_name     = "POSTMARK_AUTH_TOKEN"
