@@ -144,10 +144,21 @@ jobs:
 
         script: |
           cd ~
-          export DATABASE_URL=postgres://postgres:${{ secrets.POSTGRES_PASSWORD }}@localhost:5432
-          export JWT_SECRET="${{ secrets.JWT_SECRET }}"
-          export POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
-          export POSTMARK_AUTH_TOKEN=${{ secrets.POSTMARK_AUTH_TOKEN }}
+
+          # Create or update the environment file
+          cat << EOF > .env
+          ADMIN_EMAIL=${{ secrets.ADMIN_EMAIL }}
+          DATABASE_URL="postgres://postgres:${{ secrets.POSTGRES_PASSWORD }}@localhost:5432"
+          JWT_SECRET=${{ secrets.JWT_SECRET }}
+          POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+          POSTMARK_AUTH_TOKEN=${{ secrets.POSTMARK_AUTH_TOKEN }}
+          EOF
+
+          # Load the environment variables
+          set -a
+          source .env
+          set +a
+
           docker compose down
           docker compose pull
           docker compose -f compose.yml up -d
