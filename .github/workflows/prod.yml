@@ -12,7 +12,7 @@ jobs:
     env:
       ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+      POSTGRES_PASSWORD: password
 
     services:
       postgres:
@@ -56,6 +56,19 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y protobuf-compiler
 
+    - name: Install SQLx CLI
+      run: cargo install sqlx-cli --no-default-features --features postgres
+
+    - name: Run migrations for auth-service
+      working-directory: ./auth-service
+      run: |
+        sqlx database create
+        sqlx migrate run
+
+    - name: Run SQLx prepare for auth-service
+      working-directory: ./auth-service
+      run: cargo sqlx prepare -- --lib
+
     - name: Build and test app-service code
       working-directory: ./app-service
       run: |
@@ -65,9 +78,9 @@ jobs:
     - name: Build and test auth-service code
       working-directory: ./auth-service
       env:
+        JWT_SECRET: secret
         DATABASE_URL: postgresql://${{ env.POSTGRES_USER }}:${{ env.POSTGRES_PASSWORD }}@localhost:5432
       run: |
-        export JWT_SECRET=secret
         cargo build --verbose
         cargo test --verbose
 
