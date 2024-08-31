@@ -16,7 +16,6 @@ ENV REDIS_HOST_NAME=redis
 
 # Build the application
 RUN cargo build --release
-RUN cargo sqlx prepare
 
 # Runtime stage
 FROM debian:buster-slim AS runtime

@@ -150,8 +150,6 @@ jobs:
           export POSTMARK_AUTH_TOKEN=${{ secrets.POSTMARK_AUTH_TOKEN }}
           docker compose down
           docker compose pull
-          docker compose up db --build -d
-          docker compose up redis --build -d
           docker compose -f compose.yml up -d
 
     - name: Checkout code
