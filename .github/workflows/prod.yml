@@ -13,6 +13,8 @@ jobs:
       ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
+      DATABASE_URL: postgresql://postgres:password@localhost:5432
+      JWT_SECRET: secret
 
     services:
       postgres:
@@ -77,9 +79,6 @@ jobs:
 
     - name: Build and test auth-service code
       working-directory: ./auth-service
-      env:
-        JWT_SECRET: secret
-        DATABASE_URL: postgresql://${{ env.POSTGRES_USER }}:${{ env.POSTGRES_PASSWORD }}@localhost:5432
       run: |
         cargo build --verbose
         cargo test --verbose
@@ -143,6 +142,8 @@ jobs:
           export POSTMARK_AUTH_TOKEN=${{ secrets.POSTMARK_AUTH_TOKEN }}
           docker compose down
           docker compose pull
+          docker compose up db --build -d
+          docker compose up redis --build -d
           docker compose -f compose.yml up -d
 
     - name: Checkout code

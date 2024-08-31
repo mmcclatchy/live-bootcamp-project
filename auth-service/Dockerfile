@@ -12,8 +12,14 @@ WORKDIR /app
 
 COPY . .
 
+ARG DATABASE_URL
+
+ENV DATABASE_URL=${DATABASE_URL}
+ENV REDIS_HOST_NAME=redis
+
 # Build the application
 RUN cargo build --release
+RUN cargo sqlx prepare
 
 # Runtime stage
 FROM debian:buster-slim AS runtime
@@ -23,8 +29,5 @@ WORKDIR /app
 # Copy the binary from the builder stage
 COPY --from=builder /app/target/release/auth-service /usr/local/bin
 COPY --from=builder /app/assets /app/assets
-
-ENV RUST_LOG=debug
-ENV REDIS_HOST_NAME=redis
 
 CMD ["/usr/local/bin/auth-service"]
