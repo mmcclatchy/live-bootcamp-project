@@ -1,5 +1,10 @@
 use std::{ops::Deref, sync::Arc};
 
+use redis::aio::ConnectionManager;
+use reqwest::Client;
+use sqlx::PgPool;
+use tokio::sync::RwLock;
+
 use auth_service::{
     domain::email::Email,
     get_postgres_pool, get_redis_client,
@@ -14,14 +19,11 @@ use auth_service::{
         postmark_email_client::PostmarkEmailClient,
     },
     utils::{
-        constants::{prod, DATABASE_URL, POSTMARK_AUTH_TOKEN, REDIS_HOST_NAME},
+        constants::{prod, DATABASE_URL, POSTMARK_AUTH_TOKEN, REDIS_HOST_NAME, REDIS_PASSWORD},
         tracing::init_tracing,
     },
     GRPCApp, RESTApp,
 };
-use reqwest::Client;
-use sqlx::PgPool;
-use tokio::sync::RwLock;
 
 #[tracing::instrument(name = "Configure PostgreSQL")]
 async fn configure_postgresql() -> PgPool {
@@ -40,11 +42,10 @@ async fn configure_postgresql() -> PgPool {
 }
 
 #[tracing::instrument(name = "Configure Redis")]
-fn configure_redis() -> Arc<RwLock<redis::Connection>> {
-    let conn = get_redis_client(REDIS_HOST_NAME.to_owned())
-        .expect("Failed to get Redis Client")
-        .get_connection()
-        .expect("Failed to get Redis Connection");
+async fn configure_redis() -> Arc<RwLock<ConnectionManager>> {
+    let conn = get_redis_client(REDIS_HOST_NAME.to_owned(), Some(REDIS_PASSWORD.to_owned()))
+        .await
+        .expect("Failed to get Redis ConnectionManager");
     Arc::new(RwLock::new(conn))
 }
 
@@ -71,7 +72,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing::info!("Starting auth service");
 
     let pg_pool = configure_postgresql().await;
-    let redis_conn = configure_redis();
+    let redis_conn = configure_redis().await;
 
     let app_state: PersistentAppStateType = AppState::new_arc(
         RedisBannedTokenStore::new(redis_conn.clone()),

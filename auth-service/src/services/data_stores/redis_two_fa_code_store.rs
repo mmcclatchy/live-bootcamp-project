@@ -1,12 +1,11 @@
 use std::{fmt::Debug, sync::Arc};
 
 use color_eyre::eyre::eyre;
-use redis::{Commands, Connection};
+use redis::{aio::ConnectionManager, AsyncCommands};
 use secrecy::{ExposeSecret, Secret};
 use serde::{Deserialize, Serialize};
 use serde_json::{from_str, json};
 use tokio::sync::RwLock;
-use tracing::debug;
 
 use crate::{
     domain::{
@@ -18,11 +17,11 @@ use crate::{
 
 #[derive(Clone)]
 pub struct RedisTwoFACodeStore {
-    conn: Arc<RwLock<Connection>>,
+    conn: Arc<RwLock<ConnectionManager>>,
 }
 
 impl RedisTwoFACodeStore {
-    pub fn new(conn: Arc<RwLock<Connection>>) -> Self {
+    pub fn new(conn: Arc<RwLock<ConnectionManager>>) -> Self {
         Self { conn }
     }
 }
@@ -46,13 +45,9 @@ impl TwoFACodeStore for RedisTwoFACodeStore {
         let two_fa_tuple = TwoFATuple(login_attempt_id.expose_secret_string(), code.expose_secret_string());
         let two_fa_json = json!(two_fa_tuple).to_string();
 
-        debug!("[Redis2FACodeStore][add_code] {key}");
-        debug!("[Redis2FACodeStore][add_code] {two_fa_json}");
-
         conn.set_ex(key, two_fa_json, Time::Minutes10 as u64)
+            .await
             .map_err(|e| TwoFACodeStoreError::UnexpectedError(e.into()))?;
-
-        debug!("[Redis2FACodeStore][add_code] 2FA Code Set");
 
         Ok(())
     }
@@ -60,7 +55,9 @@ impl TwoFACodeStore for RedisTwoFACodeStore {
     async fn remove_code(&mut self, email: &Email) -> Result<(), TwoFACodeStoreError> {
         let key = get_key(email);
         let mut conn = self.conn.write().await;
+
         conn.del(key)
+            .await
             .map_err(|e| TwoFACodeStoreError::UnexpectedError(e.into()))?;
 
         Ok(())
@@ -69,7 +66,12 @@ impl TwoFACodeStore for RedisTwoFACodeStore {
     async fn get_code(&self, email: &Email) -> Result<(LoginAttemptId, TwoFACode), TwoFACodeStoreError> {
         let mut conn = self.conn.write().await;
         let key = get_key(email);
-        let two_fa_json: String = conn.get(key).map_err(|_| TwoFACodeStoreError::LoginAttemptIdNotFound)?;
+
+        let two_fa_json: String = conn
+            .get(key)
+            .await
+            .map_err(|_| TwoFACodeStoreError::LoginAttemptIdNotFound)?;
+
         let two_fa_tuple: TwoFATuple =
             from_str(&two_fa_json).map_err(|e| TwoFACodeStoreError::UnexpectedError(e.into()))?;
 

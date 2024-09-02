@@ -11,10 +11,12 @@ jobs:
     runs-on: ubuntu-latest
     env:
       ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
       DATABASE_URL: postgresql://postgres:password@localhost:5432
       JWT_SECRET: secret
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      REDIS_HOST_NAME: localhost
+      REDIS_PASSWORD: password
 
     services:
       postgres:
@@ -34,6 +36,8 @@ jobs:
         image: redis:7.0-alpine
         ports:
           - "6379:6379"
+        env:
+          REDIS_PASSWORD: ${{ env.REDIS_PASSWORD }}
 
     steps:
       # Checkout code from the repository
@@ -62,6 +66,13 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y protobuf-compiler
+
+    - name: Configure Redis
+      run: |
+        docker exec -i $(docker ps -q --filter ancestor=redis:7.0-alpine) redis-cli <<EOF
+        CONFIG SET requirepass "$REDIS_PASSWORD"
+        CONFIG REWRITE
+        EOF
 
     - name: Install SQLx CLI
       run: cargo install sqlx-cli --no-default-features --features postgres
@@ -153,6 +164,7 @@ jobs:
           POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
           POSTMARK_AUTH_TOKEN=${{ secrets.POSTMARK_AUTH_TOKEN }}
           REDIS_HOST_NAME=redis
+          REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
           EOF
 
           # Load the environment variables

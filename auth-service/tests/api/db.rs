@@ -10,7 +10,7 @@ use uuid::Uuid;
 
 use auth_service::{
     get_postgres_pool, get_redis_client,
-    utils::constants::{test, DATABASE_URL, DEFAULT_REDIS_HOST_NAME},
+    utils::constants::{test, DATABASE_URL, REDIS_PASSWORD},
 };
 
 #[derive(Clone, Debug)]
@@ -119,10 +119,14 @@ pub async fn delete_database(db_name: &str) -> Result<(), String> {
     Ok(())
 }
 
-pub fn configure_redis() -> Arc<RwLock<redis::Connection>> {
-    let conn = get_redis_client(DEFAULT_REDIS_HOST_NAME.to_owned())
-        .expect("Failed to get Redis Client")
-        .get_connection()
-        .expect("Failed to get Redis Connection");
+pub async fn configure_redis() -> Arc<RwLock<redis::aio::ConnectionManager>> {
+    let redis_hostname = test::REDIS_HOST_NAME.to_string();
+    let redis_password = Some(REDIS_PASSWORD.to_owned());
+    let conn = get_redis_client(redis_hostname, redis_password)
+        .await
+        .expect("Failed to get Redis ConnectionManager");
+
+    println!("[TEST][db][configure_redis] Connection successfully established");
+
     Arc::new(RwLock::new(conn))
 }

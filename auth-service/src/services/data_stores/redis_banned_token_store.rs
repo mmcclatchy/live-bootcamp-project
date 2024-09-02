@@ -1,6 +1,6 @@
 use std::{fmt, sync::Arc};
 
-use redis::{Commands, Connection};
+use redis::{aio::ConnectionManager, AsyncCommands};
 use secrecy::{ExposeSecret, Secret};
 use tokio::sync::RwLock;
 
@@ -11,7 +11,7 @@ use crate::{
 
 #[derive(Clone)]
 pub struct RedisBannedTokenStore {
-    conn: Arc<RwLock<Connection>>,
+    conn: Arc<RwLock<ConnectionManager>>,
 }
 
 impl fmt::Debug for RedisBannedTokenStore {
@@ -21,7 +21,7 @@ impl fmt::Debug for RedisBannedTokenStore {
 }
 
 impl RedisBannedTokenStore {
-    pub fn new(conn: Arc<RwLock<Connection>>) -> Self {
+    pub fn new(conn: Arc<RwLock<ConnectionManager>>) -> Self {
         Self { conn }
     }
 }
@@ -32,7 +32,9 @@ impl BannedTokenStore for RedisBannedTokenStore {
     async fn add_token(&mut self, token: Secret<String>) -> Result<(), TokenStoreError> {
         let mut conn = self.conn.write().await;
         let key = get_key(&token);
+
         conn.set_ex(key, true, TOKEN_TTL_SECONDS as u64)
+            .await
             .map_err(|e| TokenStoreError::UnexpectedError(e.into()))?;
 
         Ok(())
@@ -42,8 +44,10 @@ impl BannedTokenStore for RedisBannedTokenStore {
     async fn check_token(&self, token: Secret<String>) -> Result<(), TokenStoreError> {
         let mut conn = self.conn.write().await;
         let key = get_key(&token);
+
         match conn
             .exists(&key)
+            .await
             .map_err(|e| TokenStoreError::UnexpectedError(e.into()))?
         {
             true => Err(TokenStoreError::BannedToken),

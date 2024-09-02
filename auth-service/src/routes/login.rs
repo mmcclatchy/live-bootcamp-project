@@ -80,6 +80,7 @@ async fn handle_2fa<S: AppServices>(
 
     let email = (*email).clone();
     let mut two_fa_code_store = state.two_fa_code_store.write().await;
+
     two_fa_code_store
         .add_code(email.clone(), login_attempt_id.clone(), two_fa_code.clone())
         .await

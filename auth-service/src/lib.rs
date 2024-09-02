@@ -1,4 +1,4 @@
-use redis::{Client, RedisResult};
+use redis::{aio::ConnectionManager, Client, RedisResult};
 use secrecy::{ExposeSecret, Secret};
 use sqlx::{postgres::PgPoolOptions, PgPool};
 
@@ -18,7 +18,42 @@ pub async fn get_postgres_pool(url: &Secret<String>) -> Result<PgPool, sqlx::Err
         .await
 }
 
-pub fn get_redis_client(redis_hostname: String) -> RedisResult<Client> {
-    let redis_url = format!("redis://{redis_hostname}/");
-    redis::Client::open(redis_url)
+pub async fn get_redis_client(
+    redis_hostname: String,
+    redis_password: Option<Secret<String>>,
+) -> RedisResult<ConnectionManager> {
+    let redis_url = match redis_password.clone() {
+        Some(redis_password) => {
+            tracing::debug!("Redis URL: redis://REDACTED@{redis_hostname}:6379");
+            format!("redis://{}@{redis_hostname}:6379", redis_password.expose_secret())
+        }
+        None => {
+            tracing::debug!("Redis URL: redis://{redis_hostname}:6379");
+            format!("redis://{redis_hostname}:6379")
+        }
+    };
+    let client = Client::open(redis_url)?;
+    let mut manager = ConnectionManager::new(client).await?;
+
+    match redis_password {
+        None => Ok(manager),
+        Some(password) => {
+            // Explicitly authenticate with the password
+            let result: RedisResult<String> = redis::cmd("AUTH")
+                .arg(password.expose_secret())
+                .query_async(&mut manager)
+                .await;
+
+            match result {
+                Ok(_) => {
+                    tracing::info!("Successfully authenticated with Redis");
+                    Ok(manager)
+                }
+                Err(e) => {
+                    tracing::error!("Failed to authenticate with Redis: {:?}", e);
+                    Err(e)
+                }
+            }
+        }
+    }
 }

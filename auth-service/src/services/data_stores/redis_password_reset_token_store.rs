@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use redis::{Commands, Connection};
+use redis::{aio::ConnectionManager, AsyncCommands};
 use secrecy::ExposeSecret;
 use tokio::sync::RwLock;
 
@@ -11,11 +11,11 @@ use crate::domain::{
 
 #[derive(Clone)]
 pub struct RedisPasswordResetTokenStore {
-    conn: Arc<RwLock<Connection>>,
+    conn: Arc<RwLock<ConnectionManager>>,
 }
 
 impl RedisPasswordResetTokenStore {
-    pub fn new(conn: Arc<RwLock<Connection>>) -> Self {
+    pub fn new(conn: Arc<RwLock<ConnectionManager>>) -> Self {
         Self { conn }
     }
 }
@@ -33,6 +33,7 @@ impl PasswordResetTokenStore for RedisPasswordResetTokenStore {
         let key = get_key(&email);
 
         conn.set_ex(key, token, TEN_MINUTES_IN_SECONDS)
+            .await
             .map_err(|e| TokenStoreError::UnexpectedError(e.into()))?;
 
         Ok(())
@@ -41,7 +42,10 @@ impl PasswordResetTokenStore for RedisPasswordResetTokenStore {
     async fn remove_token(&mut self, email: &Email) -> Result<(), TokenStoreError> {
         let key = get_key(email);
         let mut conn = self.conn.write().await;
-        conn.del(key).map_err(|e| TokenStoreError::UnexpectedError(e.into()))?;
+
+        conn.del(key)
+            .await
+            .map_err(|e| TokenStoreError::UnexpectedError(e.into()))?;
 
         Ok(())
     }
@@ -49,7 +53,7 @@ impl PasswordResetTokenStore for RedisPasswordResetTokenStore {
     async fn get_token(&self, email: &Email) -> Result<String, TokenStoreError> {
         let mut conn = self.conn.write().await;
         let key = get_key(email);
-        let token: String = conn.get(key).map_err(|_| TokenStoreError::TokenNotFound)?;
+        let token: String = conn.get(key).await.map_err(|_| TokenStoreError::TokenNotFound)?;
 
         Ok(token)
     }

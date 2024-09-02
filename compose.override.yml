@@ -21,7 +21,6 @@ services:
       RUST_LOG: debug
       RUST_BACKTRACE: 1
       SQLX_OFFLINE: true
-      REDIS_HOST_NAME: "127.0.0.1"
     restart: unless-stopped
 
   nginx:

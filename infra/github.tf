@@ -54,6 +54,12 @@ resource "github_actions_secret" "postmark_auth_token" {
   plaintext_value = var.postmark_auth_token
 }
 
+resource "github_actions_secret" "redis_password" {
+  repository      = data.github_repository.live_rust_bootcamp.name
+  secret_name     = "REDIS_PASSWORD"
+  plaintext_value = var.redis_password
+}
+
 resource "github_actions_variable" "domain_name" {
   repository    = data.github_repository.live_rust_bootcamp.name
   variable_name = "DOMAIN_NAME"

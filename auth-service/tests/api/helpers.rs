@@ -1,5 +1,5 @@
-use std::fmt;
 use std::sync::Arc;
+use std::{fmt, panic};
 
 use auth_service::services::data_stores::redis_banned_token_store::RedisBannedTokenStore;
 use auth_service::services::data_stores::redis_password_reset_token_store::RedisPasswordResetTokenStore;
@@ -53,7 +53,7 @@ impl RESTTestApp {
     pub async fn new() -> Self {
         let (pg_pool, db_name) = configure_postgresql().await;
         let user_store = PostgresUserStore::new(pg_pool);
-        let redis_conn = configure_redis();
+        let redis_conn = configure_redis().await;
         let email_server = MockServer::start().await;
         let app_state = AppState::new_arc(
             RedisBannedTokenStore::new(redis_conn.clone()),

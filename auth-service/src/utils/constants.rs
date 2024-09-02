@@ -12,24 +12,31 @@ lazy_static! {
     pub static ref POSTMARK_AUTH_TOKEN: Secret<String> =
         Secret::new(set_required_env_var(env::POSTMARK_AUTH_TOKEN_ENV_VAR));
     pub static ref REDIS_HOST_NAME: String = set_default_env_var(env::REDIS_HOST_NAME_ENV_VAR, DEFAULT_REDIS_HOST_NAME);
+    pub static ref REDIS_PASSWORD: Secret<String> = Secret::new(set_required_env_var(env::REDIS_PASSWORD_ENV_VAR));
     pub static ref REST_AUTH_SERVICE_URL: String =
         set_default_env_var(env::REST_AUTH_SERVICE_URL_ENV_VAR, "http://localhost/auth");
 }
 
 fn set_default_env_var(var_name: &str, default_value: &str) -> String {
+    debug!("Attempting to obtain {var_name} environment variable with a default value of '{default_value}'");
     dotenv().ok();
-    std_env::var(var_name).unwrap_or_else(|_| default_value.to_string())
+    debug!("dotenv Ok");
+    match std_env::var(var_name) {
+        Err(_) => default_value.to_string(),
+        Ok(value) if value.is_empty() => default_value.to_string(),
+        Ok(value) => value,
+    }
 }
 
 fn set_required_env_var(var_name: &str) -> String {
     debug!("Attempting to obtain {var_name} environment variable");
     dotenv().ok();
     debug!("dotenv Ok");
-    let var_value = std_env::var(var_name).expect("{var_name} must be set.");
-    if var_value.is_empty() {
-        panic!("{var_name} must not be empty.");
+    match std_env::var(var_name) {
+        Err(_) => panic!("{var_name} must be set."),
+        Ok(value) if value.is_empty() => panic!("environment variable value must not be empty."),
+        Ok(value) => value,
     }
-    var_value
 }
 
 pub mod env {
@@ -38,6 +45,7 @@ pub mod env {
     pub const POSTMARK_AUTH_TOKEN_ENV_VAR: &str = "POSTMARK_AUTH_TOKEN";
     pub const REST_AUTH_SERVICE_URL_ENV_VAR: &str = "REST_AUTH_SERVICE_URL";
     pub const REDIS_HOST_NAME_ENV_VAR: &str = "REDIS_HOST_NAME";
+    pub const REDIS_PASSWORD_ENV_VAR: &str = "REDIS_PASSWORD";
 }
 
 pub mod prod {
@@ -57,6 +65,8 @@ pub mod test {
     pub const APP_REST_ADDRESS: &str = "127.0.0.1:0";
     pub const APP_GRPC_ADDRESS: &str = "127.0.0.1:0";
     pub const DATABASE_URL: &str = "postgres://postgres:password@localhost:5432";
+    pub const REDIS_HOST_NAME: &str = "127.0.0.1";
+    pub const REDIS_PASSWORD: &str = "password";
 
     pub mod email_client {
         use std::time::Duration;
@@ -69,7 +79,7 @@ pub mod test {
 pub const JWT_COOKIE_NAME: &str = "jwt";
 pub const TOKEN_TTL_SECONDS: i64 = Time::Minutes10 as i64;
 pub const PASSWORD_RESET_TOKEN_TTL_SECONDS: i64 = Time::Hours1 as i64;
-pub const DEFAULT_REDIS_HOST_NAME: &str = "127.0.0.1";
+pub const DEFAULT_REDIS_HOST_NAME: &str = "redis";
 
 pub type Epoch = u32;
 
